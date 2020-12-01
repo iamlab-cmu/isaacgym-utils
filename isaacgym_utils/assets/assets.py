@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
 import os
 
 import numpy as np
@@ -13,7 +14,7 @@ class GymAsset(ABC):
     GLOBAL_ASSET_CACHE = {}
     GLOBAL_TEXTURES_CACHE = {}
 
-    def __init__(self, gym, sim, shape_props={}, rb_props={}, dof_props={}, asset_options={}, assets_root='assets'):
+    def __init__(self, gym, sim, shape_props={}, rb_props={}, dof_props={}, asset_options={}, assets_root=Path('assets')):
         self._gym = gym
         self._sim = sim
         self._shape_props = shape_props
@@ -138,7 +139,7 @@ class GymAsset(ABC):
                 self._gym.set_rigid_body_color(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, np_to_vec3([1, 1, 1]))
                 # create and set texture
                 if rb_props['texture'] not in self.GLOBAL_TEXTURES_CACHE:
-                    self.GLOBAL_TEXTURES_CACHE[rb_props['texture']] = self._gym.create_texture_from_file(self._sim, os.path.join(self._assets_root, rb_props['texture']))
+                    self.GLOBAL_TEXTURES_CACHE[rb_props['texture']] = self._gym.create_texture_from_file(self._sim, self._assets_root / rb_props['texture'])
                 th = self.GLOBAL_TEXTURES_CACHE[rb_props['texture']]
                 self._gym.set_rigid_body_texture(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, th)
 
@@ -258,10 +259,10 @@ class GymURDFAsset(GymAsset):
 
     def __init__(self, urdf_path, *args, dof_props={}, **kwargs):
         super().__init__(*args, **kwargs)
-        asset_uid = os.path.join(self._assets_root, urdf_path)
+        asset_uid = self._assets_root / urdf_path
 
         self._gym_asset_options.default_dof_drive_mode = gymapi.DOF_MODE_POS
-        gym_asset = self._gym.load_asset(self._sim, self._assets_root, urdf_path, self._gym_asset_options)
+        gym_asset = self._gym.load_asset(self._sim, str(self._assets_root), urdf_path, self._gym_asset_options)
         
         self._insert_asset(asset_uid, gym_asset)
 

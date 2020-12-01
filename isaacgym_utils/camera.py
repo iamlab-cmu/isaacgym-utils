@@ -40,38 +40,38 @@ class GymCamera:
         return np.deg2rad(self.gym_cam_props.horizontal_fov)
 
     def get_transform(self, ch, env_idx):
-        transform = self._gym.get_camera_transform(self._sim, ch)
         # extrinsics transform to env origin
-        env = self._gym.get_env(self._sim, env_idx)
-        env_tf = self._gym.get_env_origin(env)
-        transform.p -= env_tf # apply environment offset, assuming no rotation between envs
+        env_ptr = self._gym.get_env(self._sim, env_idx)
+        transform = self._gym.get_camera_transform(self._sim, env_ptr, ch)
         # rotate 180 degrees about x-axis, default transform is flipped for some reason
         transform.r = transform.r * gymapi.Quat(0,1,0,0) 
         return transform
 
-    def get_extrinsics(self, ch, name, env_ptr):
-        IV = np.linalg.inv(self._gym.get_camera_view_matrix(self._sim, ch)).T
+    def get_extrinsics(self, ch, frame_name, env_idx):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
+        IV = np.linalg.inv(self._gym.get_camera_view_matrix(self._sim, env_ptr, ch)).T
         
         R = IV[:3, :3] @ self._x_axis_rot
         T = IV[:3, 3] - vec3_to_np(self._gym.get_env_origin(env_ptr))
 
-        return RigidTransform(rotation=R, translation=T, from_frame=name, to_frame='world')
+        return RigidTransform(rotation=R, translation=T, from_frame=frame_name, to_frame='world')
 
-    def get_intrinsics(self, name):
+    def get_intrinsics(self, frame_name):
         hx, hy = self.width/2, self.height/2
         fx = hx / np.tan(self.fov/2)
         fy = fx
-        return CameraIntrinsics(name, fx, fy, hx, hy, height=self.height, width=self.width)
+        return CameraIntrinsics(frame_name, fx, fy, hx, hy, height=self.height, width=self.width)
 
-    def frames(self, ch, name):
-        raw_color = self._gym.get_camera_image(self._sim, ch, gymapi.IMAGE_COLOR)
-        raw_depth = self._gym.get_camera_image(self._sim, ch, gymapi.IMAGE_DEPTH)
-        raw_seg = self._gym.get_camera_image(self._sim, ch, gymapi.IMAGE_SEGMENTATION)
+    def frames(self, ch, frame_name, env_idx):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
+        raw_color = self._gym.get_camera_image(self._sim, env_ptr, ch, gymapi.IMAGE_COLOR)
+        raw_depth = self._gym.get_camera_image(self._sim, env_ptr, ch, gymapi.IMAGE_DEPTH)
+        raw_seg = self._gym.get_camera_image(self._sim, env_ptr, ch, gymapi.IMAGE_SEGMENTATION)
 
         color = _process_gym_color(raw_color)
         depth = _process_gym_depth(raw_depth)
 
-        return ColorImage(color, frame=name), DepthImage(depth, frame=name), SegmentationImage(raw_seg.astype('uint16'), frame=name)
+        return ColorImage(color, frame=frame_name), DepthImage(depth, frame=frame_name), SegmentationImage(raw_seg.astype('uint16'), frame=frame_name)
 
 
 def _process_gym_color(raw_im):

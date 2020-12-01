@@ -1,7 +1,7 @@
 import numpy as np
 
 from isaacgym import gymapi
-from isaacgym_utils.constants import isaacgym_ASSETS_PATH
+from isaacgym_utils.constants import isaacgym_utils_ASSETS_PATH
 from isaacgym_utils.math_utils import transform_to_RigidTransform, vec3_to_np, quat_to_rot, np_to_vec3
 
 from .assets import GymURDFAsset
@@ -15,8 +15,8 @@ class GymFranka(GymURDFAsset):
     _UPPER_LIMITS = None
     _VEL_LIMITS = None
 
-    _URDF_PATH = 'urdf/franka_description/robots/franka_panda.urdf'
-    _URDF_PATH_WITH_DYNAMICS = 'urdf/franka_description/robots/franka_panda_dynamics.urdf'
+    _URDF_PATH = 'franka_description/robots/franka_panda.urdf'
+    _URDF_PATH_WITH_DYNAMICS = 'franka_description/robots/franka_panda_dynamics.urdf'
 
     @staticmethod
     def _key(env_index, name):
@@ -28,7 +28,7 @@ class GymFranka(GymURDFAsset):
             assets_root = cfg['assets_root']
         else:
             urdf_path = GymFranka._URDF_PATH_WITH_DYNAMICS
-            assets_root = isaacgym_ASSETS_PATH
+            assets_root = isaacgym_utils_ASSETS_PATH
         super().__init__(urdf_path, *args, 
                         shape_props=cfg['shape_props'], 
                         dof_props=cfg['dof_props'], 

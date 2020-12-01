@@ -98,7 +98,7 @@ class GymScene:
             self._gym.set_camera_location(ch, env_ptr, pos, look_at)
             self.ch_map[env_idx][name] = ch
 
-    def attach_camera(self, name, camera, actor_name, rb_name, offset_transform=None, envs=None):
+    def attach_camera(self, name, camera, actor_name, rb_name, offset_transform=None, envs=None, pos_only=False):
         if envs is None:
             envs = self.env_idx
 
@@ -116,7 +116,7 @@ class GymScene:
             rbh = self._gym.get_actor_rigid_body_handle(env_ptr, ah, rb_idx)
 
             ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
-            self._gym.attach_camera_to_body(ch, env_ptr, rbh, offset_transform)
+            self._gym.attach_camera_to_body(ch, env_ptr, rbh, offset_transform, 0 if pos_only else 1)
             self.ch_map[env_idx][name] = ch
 
     def get_asset(self, name, env_idx=0):
@@ -224,8 +224,9 @@ class GymScene:
     def step(self):
         self._gym.simulate(self._sim)
         self._gym.fetch_results(self._sim, True)
-        if self.is_cts_enabled:
-            self._propagate_asset_cts()
+        # TODO(jacky): Update to use new API
+        # if self.is_cts_enabled:
+        #     self._propagate_asset_cts()
 
     def render(self, custom_draws=None):
         if self.gui:
@@ -316,8 +317,19 @@ def make_gym(sim_cfg):
         elif key == 'device':
             compute_device = val['compute']
             graphics_device = val['graphics']
+        elif key == 'up_axis':
+            if val == 'y':
+                continue
+            elif val == 'z':
+                sim_params.up_axis = gymapi.UP_AXIS_Z
+                sim_params.gravity = gymapi.Vec3(0.0, 0.0, -9.8)
+                plane_params.normal = gymapi.Vec3(0, 0, 1)
+            else:
+                raise ValueError('Unknown up_axis! Must be y or z')
         else:
             setattr(sim_params, key, val)
+
+    sim_params.enable_actor_creation_warning = False
     sim = gym.create_sim(compute_device, graphics_device, physics_engine, sim_params)
     gym.add_ground(sim, plane_params)
 

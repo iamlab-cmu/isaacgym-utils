@@ -64,9 +64,10 @@ if __name__ == "__main__":
     # Render images
     scene.render_cameras()
     color_list, depth_list = [], []
+    env_idx = 0
     for cam_name in cam_names:
         # get images of cameras in first env 
-        color, depth, _ = cam.frames(scene.ch_map[0][cam_name], cam_name)
+        color, depth, _ = cam.frames(scene.ch_map[env_idx][cam_name], cam_name, env_idx)
         color_list.append(color)
         depth_list.append(depth)
 
@@ -82,7 +83,7 @@ if __name__ == "__main__":
 
     # Get camera poses
     camera_poses = [
-        cam.get_extrinsics(scene.ch_map[0][cam_name], cam_name, scene.env_ptrs[0])
+        cam.get_extrinsics(scene.ch_map[0][cam_name], cam_name, env_idx)
         for cam_name in cam_names
     ]
 

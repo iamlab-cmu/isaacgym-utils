@@ -66,8 +66,9 @@ if __name__ == "__main__":
             draw_transforms(scene.gym, scene.viewer, [env_ptr], transforms)
 
     def cb(scene, _, __):
+        env_idx = 0
         scene.render_cameras()
-        color, depth, seg = cam.frames(scene.ch_map[0]['hand_cam0'], 'hand_cam0')
+        color, depth, seg = cam.frames(scene.ch_map[env_idx]['hand_cam0'], 'hand_cam0', env_idx)
         cam_pub.pub(color, depth, seg)
 
     policy = GraspBlockPolicy(franka, 'franka0', block, 'block0')

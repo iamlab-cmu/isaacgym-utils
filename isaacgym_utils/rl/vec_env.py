@@ -131,6 +131,8 @@ class GymVecEnv(ABC):
         for t_inter_step in range(n_inter_steps):
             self._apply_inter_actions(all_actions, t_inter_step, n_inter_steps)
             self._scene.step()
+            self._scene.render()
+            self._scene.render_cameras()
 
             if inter_step_cb is None:
                 inter_step_cb = self._inter_step_cb
