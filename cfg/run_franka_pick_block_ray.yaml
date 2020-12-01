@@ -2,9 +2,13 @@ scene:
   n_envs: 10
   es: 1
   gui: 1
+  cam:
+    cam_pos: [1.2, 0, 1.2]
+    look_at: [0.5, 0, 1]
   gym:
     dt: 0.01
     substeps: 2
+    up_axis: z
     flex:
       solver_type: 5
       num_outer_iterations: 4

@@ -19,8 +19,8 @@ class GymFranka(GymURDFAsset):
     _URDF_PATH_WITH_DYNAMICS = 'franka_description/robots/franka_panda_dynamics.urdf'
 
     @staticmethod
-    def _key(env_index, name):
-        return (env_index, name)
+    def _key(env_idx, name):
+        return (env_idx, name)
 
     def __init__(self, cfg, *args, actuation_mode='joints'):
         if 'urdf' in cfg:
@@ -77,7 +77,8 @@ class GymFranka(GymURDFAsset):
     def get_gripper_width(self, env_ptr, ah):
         return self.get_joints(env_ptr, ah)[-1]
 
-    def get_ee_transform(self, env_ptr, name, offset=True):
+    def get_ee_transform(self, env_idx, name, offset=True):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         bh = self._gym.get_rigid_handle(env_ptr, name, 'panda_hand')
         ee_transform = self._gym.get_rigid_transform(env_ptr, bh) 
         if offset:
@@ -100,11 +101,11 @@ class GymFranka(GymURDFAsset):
 
         return lf_transform, rf_transform
 
-    def get_desired_ee_transform(self, env_index, name):
+    def get_desired_ee_transform(self, env_idx, name):
         if self._actuation_mode != 'attractors':
             raise ValueError('Can\'t get desired ee transform when not using attractors!')
 
-        key = self._key(env_index, name)
+        key = self._key(env_idx, name)
         return self._attractor_transforms_map[key]
 
     def get_left_finger_ct_forces(self, env_ptr, ah):
@@ -145,14 +146,15 @@ class GymFranka(GymURDFAsset):
     def joint_max_velocities(self):
         return self._VEL_LIMITS
 
-    def set_actuation_mode(self, mode, env_index, env_ptr, name, ah):
+    def set_actuation_mode(self, mode, env_idx, name, ah):
         self._actuation_mode = mode
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         if self._actuation_mode == 'attractors':
-            self.set_dof_props(env_ptr, ah, {
+            self.set_dof_props(env_idx, ah, {
                 'driveMode': [gymapi.DOF_MODE_NONE] * 7 + [gymapi.DOF_MODE_POS] * 2
             })
 
-            key = self._key(env_index, name)
+            key = self._key(env_idx, name)
             if key not in self._attractor_handles_map:
                 attractor_props = gymapi.AttractorProperties()
                 attractor_props.stiffness = self._attractor_stiffness
@@ -166,37 +168,37 @@ class GymFranka(GymURDFAsset):
                 attractor_handle = self._gym.create_rigid_body_attractor(env_ptr, attractor_props)
                 self._attractor_handles_map[key] = attractor_handle
 
-            gripper_transform = self.get_ee_transform(env_ptr, name)
-            self.set_ee_transform(env_ptr, env_index, name, gripper_transform)
+            gripper_transform = self.get_ee_transform(env_idx, name)
+            self.set_ee_transform(env_idx, name, gripper_transform)
         elif self._actuation_mode == 'joints':
-            self.set_dof_props(env_ptr, ah, {
+            self.set_dof_props(env_idx, ah, {
                 'driveMode': [gymapi.DOF_MODE_POS] * 9
             })
         elif self._actuation_mode == 'torques':
-            self.set_dof_props(env_ptr, ah, {
+            self.set_dof_props(env_idx, ah, {
                 'driveMode': [gymapi.DOF_MODE_EFFORT] * 7 + [gymapi.DOF_MODE_POS] * 2
             })
         else:
             raise ValueError('Unknown actuation mode! Must be attractors, joints, or torques!')
 
-    def post_create_actor(self, env_index, env_ptr, name, ah):
-        super().post_create_actor(env_index, env_ptr, name, ah)
-        self.set_joints(env_ptr, ah, self.INIT_JOINTS)
-        self.set_joints_targets(env_ptr, ah, self.INIT_JOINTS)
+    def post_create_actor(self, env_idx, name, ah):
+        super().post_create_actor(env_idx, name, ah)
+        self.set_joints(env_idx, ah, self.INIT_JOINTS)
+        self.set_joints_targets(env_idx, ah, self.INIT_JOINTS)
 
         if self._LOWER_LIMITS is None or self._UPPER_LIMITS is None or self._VEL_LIMITS is None:
-            dof_props = self._gym.get_actor_dof_properties(env_ptr, ah)
+            dof_props = self.get_dof_props(env_idx, ah)
             self._LOWER_LIMITS = dof_props['lower']
             self._UPPER_LIMITS = dof_props['upper']
             self._VEL_LIMITS = dof_props['velocity']
 
-        self.set_actuation_mode(self._actuation_mode, env_index, env_ptr, name, ah)
+        self.set_actuation_mode(self._actuation_mode, env_idx, name, ah)
 
-    def set_attractor_props(self, env_index, env_ptr, name, props):
+    def set_attractor_props(self, env_idx, env_ptr, name, props):
         if self._actuation_mode != 'attractors':
             raise ValueError('Not using attractors!')
 
-        key = self._key(env_index, name)
+        key = self._key(env_idx, name)
         ath = self._attractor_handles_map[key]
         attractor_props = self._gym.get_attractor_properties(env_ptr, ath)
 
@@ -205,18 +207,18 @@ class GymFranka(GymURDFAsset):
         
         self._gym.set_attractor_properties(env_ptr, ath, attractor_props)
 
-    def set_ee_transform(self, env_ptr, env_index, name, transform):
+    def set_ee_transform(self, env_idx, name, transform):
         if self._actuation_mode != 'attractors':
             raise ValueError('Can\'t set ee transform when not using attractors!')
-
-        key = self._key(env_index, name)
+        key = self._key(env_idx, name)
         attractor_handle = self._attractor_handles_map[key]
 
         self._attractor_transforms_map[key] = transform
 
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         self._gym.set_attractor_target(env_ptr, attractor_handle, transform)
 
-    def set_delta_ee_transform(self, env_ptr, env_index, name, transform):
+    def set_delta_ee_transform(self, env_ptr, env_idx, name, transform):
         ''' This performs delta translation in the global frame and
             delta rotation in the end-effector frame.
         '''
@@ -225,7 +227,7 @@ class GymFranka(GymURDFAsset):
         desired_transform.p = desired_transform.p + transform.p
         desired_transform.r = transform.r * desired_transform.r
 
-        self.set_ee_transform(env_ptr, env_index, name, desired_transform)
+        self.set_ee_transform(env_ptr, env_idx, name, desired_transform)
 
     def apply_torque(self, env_ptr, ah, tau):
         if len(tau) == 7:
@@ -233,13 +235,13 @@ class GymFranka(GymURDFAsset):
 
         self.apply_actor_dof_efforts(env_ptr, ah, tau)
 
-    def apply_actions(self, env_ptr, env_index, ah, name, action_type, actions):
+    def apply_actions(self, env_ptr, env_idx, ah, name, action_type, actions):
         if action_type == 'ee_targets':
-            self.set_ee_transform(env_ptr, env_index, name, actions)
+            self.set_ee_transform(env_ptr, env_idx, name, actions)
         elif action_type == 'delta_ee_targets':
-            self.set_delta_ee_transform(env_ptr, env_index, name, actions)
+            self.set_delta_ee_transform(env_ptr, env_idx, name, actions)
         else:
-            super().apply_actions(env_ptr, env_index, ah, name, action_type, actions)
+            super().apply_actions(env_ptr, env_idx, ah, name, action_type, actions)
 
     def get_links_transforms(self, env_ptr, name):
         transforms = []

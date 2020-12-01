@@ -1,117 +1,117 @@
 scene:
-    n_envs: 20
-    es: 1
-    gui: 1
-    gym:
-      dt: 0.01
-      substeps: 2
-      flex:
-        solver_type: 5
-        num_outer_iterations: 4
-        num_inner_iterations: 30
-        relaxation: 0.75
-        warm_start: 0.8
-        shape_collision_margin: 1e-3
-        contact_regularization: 1e-7
-        deterministic_mode: True
-      device:
-        compute: 0
-        graphics: 0
+  n_envs: 20
+  es: 1
+  gui: 1
+  gym:
+    dt: 0.01
+    substeps: 2
+    flex:
+    solver_type: 5
+    num_outer_iterations: 4
+    num_inner_iterations: 30
+    relaxation: 0.75
+    warm_start: 0.8
+    shape_collision_margin: 1e-3
+    contact_regularization: 1e-7
+    deterministic_mode: True
+    device:
+    compute: 0
+    graphics: 0
 
 franka:
-    asset_options:
-        fix_base_link: True
-        flip_visual_attachments: True
-        armature: 0.01
-        max_linear_velocity: 100.0
-        max_angular_velocity: 40.0
-        disable_gravity: True
-    attractor_props:
-        stiffness: 1e3
-        damping: 2.5e2
-    shape_props:
-        thickness: 1e-3
-    dof_props:
-        stiffness: [2e3, 2e3, 2e3, 2e3, 2e3, 2e3, 2e3, 1e2, 1e2]
-        damping: [2e2, 2e2, 2e2, 2e2, 2e2, 2e2, 2e2, 5, 5]
-        effort: [87, 87, 87, 87, 12, 12, 12, 100, 100]
-    action:
-        mode: hfpc_cartesian_gains # vic, joints, hfpc, hfpc_cartesian_gains
-        joints:
-            max_rot_delta: 30 # deg
-        vic:
-            max_tra_delta: 0.01 # m
-            max_rot_delta: 5 # deg
-            min_stiffness: 1e2
-            max_stiffness: 1e4
-        hfpc:
-            max_tra_delta: 0.01 # m
-            max_rot_delta: 5 # deg
-            max_force_delta: 5 # N
-            min_pos_kp: 1
-            max_pos_kp: 100
-            min_force_kp: 0.01
-            max_force_kp: 10
-        hfpc_cartesian_gains:
-            max_tra_delta: 0.01 # m
-            max_rot_delta: 5 # deg
-            max_force_delta: 5 # N
-            min_pos_kp: 1
-            max_pos_kp: 100
-            min_force_kp: 0.01
-            max_force_kp: 10
+  asset_options:
+    fix_base_link: True
+    flip_visual_attachments: True
+    armature: 0.01
+    max_linear_velocity: 100.0
+    max_angular_velocity: 40.0
+    disable_gravity: True
+  attractor_props:
+    stiffness: 1e3
+    damping: 2.5e2
+  shape_props:
+    thickness: 1e-3
+  dof_props:
+    stiffness: [2e3, 2e3, 2e3, 2e3, 2e3, 2e3, 2e3, 1e2, 1e2]
+    damping: [2e2, 2e2, 2e2, 2e2, 2e2, 2e2, 2e2, 5, 5]
+    effort: [87, 87, 87, 87, 12, 12, 12, 100, 100]
+  action:
+    mode: hfpc_cartesian_gains # vic, joints, hfpc, hfpc_cartesian_gains
+    joints:
+      max_rot_delta: 30 # deg
+    vic:
+      max_tra_delta: 0.01 # m
+      max_rot_delta: 5 # deg
+      min_stiffness: 1e2
+      max_stiffness: 1e4
+    hfpc:
+      max_tra_delta: 0.01 # m
+      max_rot_delta: 5 # deg
+      max_force_delta: 5 # N
+      min_pos_kp: 1
+      max_pos_kp: 100
+      min_force_kp: 0.01
+      max_force_kp: 10
+    hfpc_cartesian_gains:
+      max_tra_delta: 0.01 # m
+      max_rot_delta: 5 # deg
+      max_force_delta: 5 # N
+      min_pos_kp: 1
+      max_pos_kp: 100
+      min_force_kp: 0.01
+      max_force_kp: 10
 
 table:
-    dims:
-        width: 1
-        height: 0.5
-        depth: 1
-    shape_props:
-        friction: 0.1
-        rolling_friction: 0
-        torsion_friction: 0
-        thickness: 2e-3
-    asset_options:
-        fix_base_link: True
+  dims:
+    width: 1
+    height: 0.5
+    depth: 1
+  shape_props:
+    friction: 0.1
+    rolling_friction: 0
+    torsion_friction: 0
+    thickness: 2e-3
+  asset_options:
+    fix_base_link: True
 
 block:
-    dims:
-        width: 0.05
-        height: 0.05
-        depth: 0.05
-    shape_props:
-        friction: 0.2
-        rolling_friction: 0.01
-        torsion_friction: 0.01
-        thickness: 2e-3
-    rb_props:
-        color: [0, 0.7, 0]
-    asset_options:
-        density: 200
+  dims:
+    width: 0.05
+    height: 0.05
+    depth: 0.05
+  shape_props:
+    friction: 0.2
+    rolling_friction: 0.01
+    torsion_friction: 0.01
+    thickness: 2e-3
+  rb_props:
+    color: [0, 0.7, 0]
+  asset_options:
+    density: 200
 
 banana:
-    urdf_path: ycb/011_banana/011_banana.urdf
-    shape_props:
-        friction: 0.2
-        rolling_friction: 0.01
-        torsion_friction: 0.01
-        thickness: 2e-3
-    rb_props:
-        texture: ycb/011_banana/MI_011_banana_MI_011_banana_D.png
-    asset_options:
-        density: 500
+  urdf_path: ycb/011_banana/011_banana.urdf
+  shape_props:
+    friction: 0.2
+    rolling_friction: 0.01
+    torsion_friction: 0.01
+    thickness: 2e-3
+  rb_props:
+    texture: ycb/011_banana/MI_011_banana_MI_011_banana_D.png
+  asset_options:
+    density: 500
 
 rl:
-    total_timesteps: 1000000
-    ppo:
-        n_steps: 128
-        gamma: 0.99
-        n_steps: 128
-        ent_coef: 0.01
-        learning_rate: 2.5e-4
-        vf_coef: 0.5
-        max_grad_norm: 0.5
-        lam: 0.95
-        nminibatches: 4
-        noptepochs: 4
-        cliprange: 0.2
+  total_timesteps: 1000000
+  ppo:
+    n_steps: 128
+    gamma: 0.99
+    n_steps: 128
+    ent_coef: 0.01
+    learning_rate: 2.5e-4
+    vf_coef: 0.5
+    max_grad_norm: 0.5
+    lam: 0.95
+    nminibatches: 4
+    noptepochs: 4
+    cliprange: 0.2

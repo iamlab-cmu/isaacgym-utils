@@ -1,13 +1,13 @@
 import argparse
 
 import numpy as np
-from autolab_core import YamlConfig, RigidTransform
+from autolab_core import YamlConfig
 
 from isaacgym import gymapi
 from isaacgym_utils.scene import GymScene
 from isaacgym_utils.assets import GymFranka, GymBoxAsset
-from isaacgym_utils.math_utils import RigidTransform_to_transform
 from isaacgym_utils.policy import RandomDeltaJointPolicy
+from isaacgym_utils.draw import draw_transforms
 
 
 if __name__ == "__main__":
@@ -24,16 +24,14 @@ if __name__ == "__main__":
                         )
     franka = GymFranka(cfg['franka'], scene.gym, scene.sim)
 
-    table_pose = RigidTransform_to_transform(RigidTransform(
-        translation=[cfg['table']['dims']['width']/3, cfg['table']['dims']['height']/2, 0]
-    ))
-    franka_pose = RigidTransform_to_transform(RigidTransform(
-        translation=[0, cfg['table']['dims']['height'] + 0.01, 0],
-        rotation=RigidTransform.quaternion_from_axis_angle([-np.pi/2, 0, 0])
-    ))
+    table_transform = gymapi.Transform(p=gymapi.Vec3(cfg['table']['dims']['sx']/3, 0, cfg['table']['dims']['sz']/2))
+    franka_transform = gymapi.Transform(p=gymapi.Vec3(0, 0, cfg['table']['dims']['sz'] + 0.01))
     
-    scene.add_asset('table0', table, table_pose)
-    scene.add_asset('franka0', franka, franka_pose, collision_filter=2) # avoid self-collision
+    scene.add_asset('table0', table, table_transform)
+    scene.add_asset('franka0', franka, franka_transform, collision_filter=2) # avoid self-collision
+
+    def custom_draws(scene):
+        draw_transforms(scene, scene.env_idxs, [franka_transform], length=0.2)
 
     policy = RandomDeltaJointPolicy(franka, 'franka0')
-    scene.run(policy=policy)
+    scene.run(policy=policy, custom_draws=custom_draws)

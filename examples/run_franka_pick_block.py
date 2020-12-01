@@ -7,7 +7,7 @@ from isaacgym import gymapi
 from isaacgym_utils.scene import GymScene
 from isaacgym_utils.assets import GymFranka, GymBoxAsset
 from isaacgym_utils.camera import GymCamera, CameraZMQPublisher
-from isaacgym_utils.math_utils import RigidTransform_to_transform, vec3_to_np
+from isaacgym_utils.math_utils import RigidTransform_to_transform
 from isaacgym_utils.policy import GraspBlockPolicy
 from isaacgym_utils.draw import draw_transforms
 
@@ -31,30 +31,27 @@ if __name__ == "__main__":
                         asset_options=cfg['block']['asset_options']
                         )
 
-    table_pose = RigidTransform_to_transform(RigidTransform(
-        translation=[cfg['table']['dims']['width']/3, cfg['table']['dims']['height']/2, 0]
-    ))
-    franka_pose = RigidTransform_to_transform(RigidTransform(
-        translation=[0, cfg['table']['dims']['height'] + 0.01, 0],
-        rotation=RigidTransform.quaternion_from_axis_angle([-np.pi/2, 0, 0])
-    ))
+    table_transform = gymapi.Transform(p=gymapi.Vec3(cfg['table']['dims']['sx']/3, 0, cfg['table']['dims']['sz']/2))
+    franka_transform = gymapi.Transform(p=gymapi.Vec3(0, 0, cfg['table']['dims']['sz'] + 0.01))
     
-    scene.add_asset('table0', table, table_pose)
-    scene.add_asset('franka0', franka, franka_pose, collision_filter=2) # avoid self-collisions
-    scene.add_asset('block0', block, gymapi.Transform()) # we'll sample block poses later
+    table_name, franka_name, block_name = 'table0', 'franka0', 'block0'
+
+    scene.add_asset(table_name, table, table_transform)
+    scene.add_asset(franka_name, franka, franka_transform, collision_filter=2) # avoid self-collisions
+    scene.add_asset(block_name, block, gymapi.Transform()) # we'll sample block poses later
 
     cam = GymCamera(scene.gym, scene.sim, cam_props=cfg['camera'])
     cam_offset_transform = RigidTransform_to_transform(RigidTransform(
         rotation=RigidTransform.x_axis_rotation(-np.pi/2) @ RigidTransform.z_axis_rotation(-np.pi/2),
         translation=np.array([-0.046490, -0.083270, 0])
     ))
-    scene.attach_camera('hand_cam0', cam, 'franka0', 'panda_hand', offset_transform=cam_offset_transform)
+    scene.attach_camera('hand_cam0', cam, franka_name, 'panda_hand', offset_transform=cam_offset_transform)
     cam_pub = CameraZMQPublisher()
 
     def custom_draws(scene):
-        for env_idx, env_ptr in enumerate(scene.env_ptrs):
-            ee_transform = franka.get_ee_transform(env_ptr, 'franka0')
-            desired_ee_transform = franka.get_desired_ee_transform(env_idx, 'franka0')
+        for env_idx in scene.env_idxs:
+            ee_transform = franka.get_ee_transform(env_idx, franka_name)
+            desired_ee_transform = franka.get_desired_ee_transform(env_idx, franka_name)
 
             transforms = [ee_transform, desired_ee_transform]
 
@@ -63,7 +60,7 @@ if __name__ == "__main__":
                 cam_transform = cam.get_transform(ch, env_idx)
                 transforms.append(cam_transform)
 
-            draw_transforms(scene.gym, scene.viewer, [env_ptr], transforms)
+            draw_transforms(scene, [env_idx], transforms)
 
     def cb(scene, _, __):
         env_idx = 0
@@ -71,20 +68,19 @@ if __name__ == "__main__":
         color, depth, seg = cam.frames(scene.ch_map[env_idx]['hand_cam0'], 'hand_cam0', env_idx)
         cam_pub.pub(color, depth, seg)
 
-    policy = GraspBlockPolicy(franka, 'franka0', block, 'block0')
+    policy = GraspBlockPolicy(franka, franka_name, block, block_name)
 
     while True:
         # sample block poses
-        block_poses = [RigidTransform(
-            translation=[(np.random.rand()*2 - 1) * 0.1 + 0.5, 
-            cfg['table']['dims']['height'] + cfg['block']['dims']['height'] / 2 + 0.1, 
-            (np.random.rand()*2 - 1) * 0.2
-            ]
-        ) for _ in range(scene.n_envs)]
+        block_transforms = [gymapi.Transform(p=gymapi.Vec3(
+            (np.random.rand()*2 - 1) * 0.1 + 0.5, 
+            (np.random.rand()*2 - 1) * 0.2,
+            cfg['table']['dims']['sz'] + cfg['block']['dims']['sz'] / 2 + 0.1
+        )) for _ in range(scene.n_envs)]
 
         # set block poses
-        for i, env_ptr in enumerate(scene.env_ptrs):
-            block.set_rb_rigid_transforms(env_ptr, scene.ah_map[i]['block0'], [block_poses[i]])
+        for env_idx in scene.env_idxs:
+            block.set_rb_transforms(env_idx, scene.ah_map[env_idx][block_name], [block_transforms[env_idx]])
 
         policy.reset()
         scene.run(time_horizon=policy.time_horizon, policy=policy, custom_draws=custom_draws, cb=cb)

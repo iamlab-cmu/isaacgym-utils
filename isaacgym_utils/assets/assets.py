@@ -37,15 +37,16 @@ class GymAsset(ABC):
         self._rb_names_map = {name: i for i, name in enumerate(self._rb_names)}
         self._rb_count = self._gym.get_asset_rigid_body_count(asset)
 
-    def post_create_actor(self, env_index, env_ptr, name, ah):
-        if env_index not in self._sim_rb_idxs_map:
-            self._sim_rb_idxs_map[env_index] = {}
-        if name not in self._sim_rb_idxs_map[env_index]:
-            self._sim_rb_idxs_map[env_index][name] = []
+    def post_create_actor(self, env_idx, name, ah):
+        if env_idx not in self._sim_rb_idxs_map:
+            self._sim_rb_idxs_map[env_idx] = {}
+        if name not in self._sim_rb_idxs_map[env_idx]:
+            self._sim_rb_idxs_map[env_idx][name] = []
         
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         for i in range(self._rb_count):
             rb_idx = self._gym.get_actor_rigid_body_index(env_ptr, ah, i, gymapi.DOMAIN_SIM)
-            self._sim_rb_idxs_map[env_index][name].append(rb_idx)
+            self._sim_rb_idxs_map[env_idx][name].append(rb_idx)
 
     def _set_cts_cache(self, all_cts_cache, all_cts_loc_cache, all_cts_cache_raw, all_n_cts_cache):
         self._all_cts_cache = all_cts_cache
@@ -69,15 +70,16 @@ class GymAsset(ABC):
     def rb_count(self):
         return self._rb_count
 
-    def get_shape_props(self, env_ptr, ah):
+    def get_shape_props(self, env_idx, ah):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         return self._gym.get_actor_rigid_shape_properties(env_ptr, ah)
         
-    def set_shape_props(self, env_ptr, ah, shape_props=None):
+    def set_shape_props(self, env_idx, ah, shape_props=None):
         if shape_props is None:
             shape_props = self._shape_props
 
         if shape_props:
-            gym_shape_props = self.get_shape_props(env_ptr, ah)
+            gym_shape_props = self.get_shape_props(env_idx, ah)
 
             if isinstance(shape_props, list):
                 if len(shape_props) != len(gym_shape_props):
@@ -89,16 +91,18 @@ class GymAsset(ABC):
                 for key, val in shape_props[i].items():
                     setattr(gym_shape_prop, key, val)
                 
+            env_ptr = self._gym.get_env(self._sim, env_idx)
             self._gym.set_actor_rigid_shape_properties(env_ptr, ah, gym_shape_props)
 
-    def get_rb_props(self, env_ptr, ah):
+    def get_rb_props(self, env_idx, ah):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         return self._gym.get_actor_rigid_body_properties(env_ptr, ah)
 
-    def set_rb_props(self, env_ptr, ah, rb_props=None, rb_idx=0):
+    def set_rb_props(self, env_idx, ah, rb_props=None, rb_idx=0):
         if rb_props is None:
             rb_props = self._rb_props
         if rb_props:
-            gym_rb_props = self.get_rb_props(env_ptr, ah)
+            gym_rb_props = self.get_rb_props(env_idx, ah)
             modified_rb_props = False
 
             if 'mass' in rb_props:
@@ -127,6 +131,8 @@ class GymAsset(ABC):
                     gym_rb_props[rb_idx].flags = gymapi.RIGID_BODY_DISABLE_GRAVITY
                 modified_rb_props = True
 
+            env_ptr = self._gym.get_env(self._sim, env_idx)
+
             if modified_rb_props:
                 self._gym.set_actor_rigid_body_properties(env_ptr, ah, gym_rb_props)
 
@@ -143,15 +149,16 @@ class GymAsset(ABC):
                 th = self.GLOBAL_TEXTURES_CACHE[rb_props['texture']]
                 self._gym.set_rigid_body_texture(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, th)
 
-    def get_dof_props(self, env_ptr, ah):
+    def get_dof_props(self, env_idx, ah):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         return self._gym.get_actor_dof_properties(env_ptr, ah)
 
-    def set_dof_props(self, env_ptr, ah, dof_props=None):
+    def set_dof_props(self, env_idx, ah, dof_props=None):
         if dof_props is None:
             dof_props = self._dof_props
 
         if dof_props:
-            gym_dof_props = self.get_dof_props(env_ptr, ah)
+            gym_dof_props = self.get_dof_props(env_idx, ah)
 
             for key, val in dof_props.items():
                 if key == 'driveMode':
@@ -159,14 +166,16 @@ class GymAsset(ABC):
                         val = [getattr(gymapi, v) for v in val]
                 gym_dof_props[key] = val
 
+            env_ptr = self._gym.get_env(self._sim, env_idx)
             self._gym.set_actor_dof_properties(env_ptr, ah, gym_dof_props)
 
-    def get_rb_states(self, env_ptr, ah):
+    def get_rb_states(self, env_idx, ah):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         return self._gym.get_actor_rigid_body_states(env_ptr, ah, gymapi.STATE_ALL)
     
-    def get_rb_poses_as_np_array(self, env_ptr, ah):
-        pos = self.get_rb_states(env_ptr, ah)['pose']['p']
-        rot = self.get_rb_states(env_ptr, ah)['pose']['r']
+    def get_rb_poses_as_np_array(self, env_idx, ah):
+        pos = self.get_rb_states(env_idx, ah)['pose']['p']
+        rot = self.get_rb_states(env_idx, ah)['pose']['r']
 
         poses_np = np.zeros([len(pos), 7])
         for i, v in enumerate('xyz'):
@@ -177,11 +186,11 @@ class GymAsset(ABC):
 
         return poses_np
 
-    def get_rb_poses(self, env_ptr, ah):
-        return self.get_rb_states(env_ptr, ah)['pose']
+    def get_rb_poses(self, env_idx, ah):
+        return self.get_rb_states(env_idx, ah)['pose']
 
-    def get_rb_vels_as_np_array(self, env_ptr, ah):
-        vel = self.get_rb_states(env_ptr, ah)['vel']
+    def get_rb_vels_as_np_array(self, env_idx, ah):
+        vel = self.get_rb_states(env_idx, ah)['vel']
 
         vel_np = np.zeros((len(vel), 2, 3))
 
@@ -191,14 +200,15 @@ class GymAsset(ABC):
 
         return vel_np
 
-    def get_rb_vels(self, env_ptr, ah):
-        return self.get_rb_states(env_ptr, ah)['vel']
+    def get_rb_vels(self, env_idx, ah):
+        return self.get_rb_states(env_idx, ah)['vel']
 
-    def set_rb_states(self, env_ptr, ah, rb_states):
+    def set_rb_states(self, env_idx, ah, rb_states):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         self._gym.set_actor_rigid_body_states(env_ptr, ah, rb_states, gymapi.STATE_ALL)
 
-    def set_rb_transforms(self, env_ptr, ah, transforms):
-        rb_states = self.get_rb_states(env_ptr, ah)
+    def set_rb_transforms(self, env_idx, ah, transforms):
+        rb_states = self.get_rb_states(env_idx, ah)
 
         for k in 'xyz':
             rb_states['vel']['linear'][k] = 0
@@ -211,14 +221,14 @@ class GymAsset(ABC):
             for k in 'wxyz':
                 rb_states[i]['pose']['r'][k] = getattr(transform.r, k)
 
-        self.set_rb_states(env_ptr, ah, rb_states)
+        self.set_rb_states(env_idx, ah, rb_states)
 
-    def set_rb_rigid_transforms(self, env_ptr, ah, rigid_transforms):
+    def set_rb_rigid_transforms(self, env_idx, ah, rigid_transforms):
         transforms = [RigidTransform_to_transform(rigid_transform) for rigid_transform in rigid_transforms]
-        self.set_rb_transforms(env_ptr, ah, transforms)
+        self.set_rb_transforms(env_idx, ah, transforms)
 
-    def get_rb_rigid_transforms(self, env_ptr, ah):
-        transforms = self.get_rb_transforms(env_ptr, ah)
+    def get_rb_rigid_transforms(self, env_idx, ah):
+        transforms = self.get_rb_transforms(env_idx, ah)
 
         rigid_transforms = [
             transform_to_RigidTransform(transform, from_frame=self._rb_names[i], to_frame='world')
@@ -227,8 +237,8 @@ class GymAsset(ABC):
 
         return rigid_transforms
 
-    def get_rb_transforms(self, env_ptr, ah):
-        rb_states = self.get_rb_states(env_ptr, ah)
+    def get_rb_transforms(self, env_idx, ah):
+        rb_states = self.get_rb_states(env_idx, ah)
 
         transforms = []
         for i in range(len(rb_states)):
@@ -273,73 +283,80 @@ class GymURDFAsset(GymAsset):
     def n_dofs(self):
         return self._n_dofs
 
-    def get_dof_states(self, env_ptr, ah):
+    def get_dof_states(self, env_idx, ah):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         return self._gym.get_actor_dof_states(env_ptr, ah, gymapi.STATE_ALL).copy()
 
-    def set_dof_states(self, env_ptr, ah, dof_states):
+    def set_dof_states(self, env_idx, ah, dof_states):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         return self._gym.set_actor_dof_states(env_ptr, ah, dof_states, gymapi.STATE_ALL)
 
-    def get_dof_names_map(self, env_ptr, ah):
+    def get_dof_names_map(self, env_idx, ah):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         return self._gym.get_actor_dof_dict(env_ptr, ah)
 
-    def get_joints(self, env_ptr, ah):
-        return self.get_dof_states(env_ptr, ah)['pos']
+    def get_joints(self, env_idx, ah):
+        return self.get_dof_states(env_idx, ah)['pos']
     
-    def get_joints_velocity(self, env_ptr, ah):
-        return self.get_dof_states(env_ptr, ah)['vel']
+    def get_joints_velocity(self, env_idx, ah):
+        return self.get_dof_states(env_idx, ah)['vel']
 
-    def set_joints(self, env_ptr, ah, joints):
-        dof_states = self.get_dof_states(env_ptr, ah)
+    def set_joints(self, env_idx, ah, joints):
+        dof_states = self.get_dof_states(env_idx, ah)
         dof_states['pos'] = joints
         dof_states['vel'] *= 0
-        return self.set_dof_states(env_ptr, ah, dof_states)
+        return self.set_dof_states(env_idx, ah, dof_states)
 
-    def set_joints_velocity(self, env_ptr, ah, joints_velocity):
-        dof_states = self.get_dof_states(env_ptr, ah)
+    def set_joints_velocity(self, env_idx, ah, joints_velocity):
+        dof_states = self.get_dof_states(env_idx, ah)
         dof_states['vel'] = joints_velocity
-        return self.set_dof_states(env_ptr, ah, dof_states)
+        return self.set_dof_states(env_idx, ah, dof_states)
 
-    def apply_delta_joints(self, env_ptr, ah, delta_joints):
-        joints = self.get_joints(env_ptr, ah)
+    def apply_delta_joints(self, env_idx, ah, delta_joints):
+        joints = self.get_joints(env_idx, ah)
         joints += delta_joints
-        return self.set_joints(env_ptr, ah, joints)
+        return self.set_joints(env_idx, ah, joints)
 
-    def get_joints_targets(self, env_ptr, ah):
+    def get_joints_targets(self, env_idx, ah):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         return self._gym.get_actor_dof_position_targets(env_ptr, ah)
 
-    def set_joints_targets(self, env_ptr, ah, joints):
+    def set_joints_targets(self, env_idx, ah, joints):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         return self._gym.set_actor_dof_position_targets(env_ptr, ah, joints.astype('float32'))
 
-    def get_rb_states(self, env_ptr, ah):
+    def get_rb_states(self, env_idx, ah):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         return self._gym.get_actor_rigid_body_states(env_ptr, ah, gymapi.STATE_ALL)
 
-    def set_rb_states(self, env_ptr, ah, rb_states):
+    def set_rb_states(self, env_idx, ah, rb_states):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         return self._gym.set_actor_rigid_body_states(env_ptr, ah, rb_states, gymapi.STATE_ALL)
 
-    def apply_delta_joint_targets(self, env_ptr, ah, delta_joints):
-        dof_targets = self.get_joints(env_ptr, ah)
+    def apply_delta_joint_targets(self, env_idx, ah, delta_joints):
+        dof_targets = self.get_joints(env_idx, ah)
         dof_targets += delta_joints
 
-        return self.set_joints_targets(env_ptr, ah, dof_targets)
+        return self.set_joints_targets(env_idx, ah, dof_targets)
 
-    def apply_actor_dof_efforts(self, env_ptr, ah, tau):
-        self._gym.apply_actor_dof_efforts(env_ptr, ah, tau.astype('float32'))
+    def apply_actor_dof_efforts(self, env_idx, ah, tau):
+        self._gym.apply_actor_dof_efforts(env_idx, ah, tau.astype('float32'))
 
-    def apply_actions(self, env_ptr, env_index, ah, name, action_type, actions):
+    def apply_actions(self, env_idx, ah, name, action_type, actions):
         if action_type == 'delta_joints_targets':
-            return self.apply_delta_joint_targets(env_ptr, ah, actions)
+            return self.apply_delta_joint_targets(env_idx, ah, actions)
         elif action_type == 'joints_targets':
-            return self.set_joints_targets(env_ptr, ah, actions)
+            return self.set_joints_targets(env_idx, ah, actions)
         else:
             raise ValueError('Unrecognized action_type {}!'.format(action_type))
 
 
 class GymBoxAsset(GymAsset):
 
-    def __init__(self, *args, width=1, height=1, depth=1, **kwargs):
+    def __init__(self, *args, sx=1, sy=1, sz=1, **kwargs):
         super().__init__(*args, **kwargs)
-        asset_uid = 'box_{}_{}_{}'.format(width, height, depth)
-        gym_asset = self._gym.create_box(self._sim, width, height, depth, self._gym_asset_options)
+        asset_uid = 'box_{}_{}_{}'.format(sx, sy, sz)
+        gym_asset = self._gym.create_box(self._sim, sx, sy, sz, self._gym_asset_options)
         self._insert_asset(asset_uid, gym_asset)
         
 

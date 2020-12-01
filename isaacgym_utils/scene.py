@@ -31,18 +31,17 @@ class GymScene:
         num_per_row = int(np.sqrt(self._n_envs))
 
         self.env_ptrs = [self._gym.create_env(self._sim, lower, upper, num_per_row) for _ in range(self._n_envs)]
-        self.env_idx = [i for i in range(self._n_envs)]
 
         # track assets
-        self._assets = {idx : {} for idx in self.env_idx}
-        self.ah_map = {idx : {} for idx in self.env_idx}
+        self._assets = {idx : {} for idx in self.env_idxs}
+        self.ah_map = {idx : {} for idx in self.env_idxs}
 
         # track cameras
-        self.ch_map = {idx : {} for idx in self.env_idx}
+        self.ch_map = {idx : {} for idx in self.env_idxs}
 
         # track segmentations
         self._seg_id = 0
-        self.seg_id_map = {idx : {} for idx in self.env_idx}
+        self.seg_id_map = {idx : {} for idx in self.env_idxs}
 
         # track contacts
         self._all_cts_cache = None
@@ -59,6 +58,10 @@ class GymScene:
     @property
     def n_envs(self):
         return self._n_envs
+
+    @property
+    def env_idxs(self):
+        return range(self.n_envs)
 
     @property
     def gui(self):
@@ -100,7 +103,7 @@ class GymScene:
 
     def attach_camera(self, name, camera, actor_name, rb_name, offset_transform=None, envs=None, pos_only=False):
         if envs is None:
-            envs = self.env_idx
+            envs = self.env_idxs
 
         if offset_transform is None:
             offset_transform = gymapi.Transform()
@@ -124,7 +127,7 @@ class GymScene:
 
     def add_asset(self, name, asset, poses, collision_filter=0, envs=None):
         if envs is None:
-            envs = self.env_idx
+            envs = self.env_idxs
 
         for env_idx in envs:
             env_ptr = self.env_ptrs[env_idx]
@@ -139,11 +142,11 @@ class GymScene:
                 pose = poses
 
             ah = self._gym.create_actor(env_ptr, asset.GLOBAL_ASSET_CACHE[asset.asset_uid], pose, name, env_idx, collision_filter, self._seg_id)
-            asset.post_create_actor(env_idx, env_ptr, name, ah)
+            asset.post_create_actor(env_idx, name, ah)
 
-            asset.set_shape_props(env_ptr, ah)
-            asset.set_rb_props(env_ptr, ah)
-            asset.set_dof_props(env_ptr, ah)
+            asset.set_shape_props(env_idx, ah)
+            asset.set_rb_props(env_idx, ah)
+            asset.set_dof_props(env_idx, ah)
 
             self.ah_map[env_idx][name] = ah
 
@@ -168,12 +171,12 @@ class GymScene:
         if envs is None:
             envs = self.env_idx
 
-        for env_idx, env_ptr in enumerate(self.env_ptrs):
+        for env_idx in self.env_idxs:
             ah = self.ah_map[env_idx][name]
             if len(actions.shape) == 1:
-                self._assets[env_idx][name].apply_actions(env_ptr, env_idx, ah, name, action_type, actions)
+                self._assets[env_idx][name].apply_actions(env_idx, ah, name, action_type, actions)
             elif len(actions.shape) == 2:
-                self._assets[env_idx][name].apply_actions(env_ptr, env_idx, ah, name, action_type, actions[env_idx])
+                self._assets[env_idx][name].apply_actions(env_idx, ah, name, action_type, actions[env_idx])
             else:
                 raise ValueError('Invalid actions shape!')
 
