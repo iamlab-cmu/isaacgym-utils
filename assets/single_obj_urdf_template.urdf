@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<robot name="$name$">
+  <link name="$name$">
+    <visual>
+      <origin xyz="$visual_origin_xyz$"/>
+      <geometry>
+        <mesh filename="$visual_geometry_path$" scale="$scale$"/>
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="$collision_origin_xyz$"/>
+      <geometry>
+        <mesh filename="$collision_geometry_path$" scale="$scale$"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="$mass$"/>
+      <inertia ixx="$ixx$" ixy="$ixy$" ixz="$ixz$" iyy="$iyy$" iyz="$iyz$" izz="$izz$"/>
+    </inertial>
+  </link>
+</robot>
