@@ -6,7 +6,7 @@ from autolab_core import RigidTransform
 from numba import jit
 import quaternion
 
-from carbongym import gymapi
+from isaacgym import gymapi
 
 
 def set_seed(seed):

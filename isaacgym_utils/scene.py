@@ -1,6 +1,6 @@
 import numpy as np
 from numba import jit
-from carbongym import gymapi
+from isaacgym import gymapi
 
 from .math_utils import np_to_vec3
 

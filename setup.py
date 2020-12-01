@@ -1,4 +1,4 @@
-"""Setup script for carbongym_utils"""
+"""Setup script for isaacgym_utils"""
 
 from setuptools import setup
 
@@ -12,11 +12,11 @@ requirements = [
     'gym'
 ]
 
-setup(name='carbongym_utils',
+setup(name='isaacgym_utils',
         version='0.1.0',
         author='Jacky Liang',
         author_email='jackyliang@cmu.edu',
         package_dir = {'': '.'},
-        packages=['carbongym_utils'],
+        packages=['isaacgym_utils'],
         install_requires=requirements
         )

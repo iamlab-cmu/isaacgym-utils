@@ -3,7 +3,7 @@ import numpy as np
 
 from autolab_core import RigidTransform
 
-from carbongym import gymapi
+from isaacgym import gymapi
 from .math_utils import RigidTransform_to_transform, transform_to_RigidTransform
 
 

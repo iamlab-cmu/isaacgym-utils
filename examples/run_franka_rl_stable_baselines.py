@@ -5,8 +5,8 @@ It's an example of how to interface with stable baselines.
 import argparse
 from autolab_core import YamlConfig
 
-from carbongym_utils.rl.stable_baselines import GymFrankaBlockVecEnvStableBaselines
-from carbongym_utils.draw import draw_transforms
+from isaacgym_utils.rl.stable_baselines import GymFrankaBlockVecEnvStableBaselines
+from isaacgym_utils.draw import draw_transforms
 
 from stable_baselines.common.policies import MlpPolicy
 from stable_baselines import PPO2

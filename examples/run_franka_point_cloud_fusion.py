@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from autolab_core import YamlConfig, RigidTransform
 
-from carbongym import gymapi
-from carbongym_utils.scene import GymScene
-from carbongym_utils.camera import GymCamera
-from carbongym_utils.assets import GymFranka, GymBoxAsset
-from carbongym_utils.math_utils import RigidTransform_to_transform
+from isaacgym import gymapi
+from isaacgym_utils.scene import GymScene
+from isaacgym_utils.camera import GymCamera
+from isaacgym_utils.assets import GymFranka, GymBoxAsset
+from isaacgym_utils.math_utils import RigidTransform_to_transform
 
 from visualization.visualizer3d import Visualizer3D as vis3d
 

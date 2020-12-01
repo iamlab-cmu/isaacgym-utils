@@ -1,23 +1,24 @@
-# carbongym-utils
-This repo contains wrappers and utilities for `carbongym`
+# isaacgym-utils
+This repo contains wrappers and utilities for `isaacgym`
 
 ## Installation
 
-```bash
-git clone https://github.com/iamlab-cmu/carbongym.git
-git clone https://github.com/iamlab-cmu/carbongym-utils.git
+Install IsaacGym from [Nvidia](https://developer.nvidia.com/isaac-gym)
 
-pip install -e carbongym/python
-pip install -e carbongym-utils
+Install `isaacgym-utils`
+
+```bash
+git clone https://github.com/iamlab-cmu/isaacgym-utils.git
+pip install -e isaacgym-utils
 ```
 
 ## Running examples
 
-Examples scripts can be found in `carbongym-utils/examples/`.
-These scripts need to be run at the root level of `carbongym-utils`:
+Examples scripts can be found in `isaacgym-utils/examples/`.
+These scripts need to be run at the root level of `isaacgym-utils`:
 
 ```bash
-cd carbongym-utils
+cd isaacgym-utils
 python examples/run_franka.py
 ```
 
@@ -29,14 +30,14 @@ applications."
 
 Do `pip install ray` to install it.
 
-See `carbongym_utils/examples/run_franka_pick_block_ray.py` for an example of
-running multiple `carbongym` instances in parallel using Ray.
+See `isaacgym_utils/examples/run_franka_pick_block_ray.py` for an example of
+running multiple `isaacgym` instances in parallel using Ray.
 
 ## RL Environment
-See `carbongym_utils/rl/vec_env.py` for the abstract Vec Env base class that is used for RL.
+See `isaacgym_utils/rl/vec_env.py` for the abstract Vec Env base class that is used for RL.
 It contains definitions of methods that are expected to be overwritten by a child class for a specific RL environment.
 
-See `carbongym_utils/rl/franka_vec_env.py` for an example of an RL env with a Franka robot using joint control, variable impedance control, and hybrid force-position control.
+See `isaacgym_utils/rl/franka_vec_env.py` for an example of an RL env with a Franka robot using joint control, variable impedance control, and hybrid force-position control.
 
 See `examples/run_franka_rl_vec_env.py` for an example of running the RL environment, and refer to the corresponding config for changing various aspects of the environment (e.g. in the YAML config, the fields under `franka.action` determine what type of action space is used).
 
@@ -47,4 +48,4 @@ To load external meshes, the meshes need to be wrapped in an URDF file.
 See `assets/ycb` for some examples.
 The script `scripts/mesh_to_urdf.py` can help make these URDFs.
 Then, they can be loaded via `GymURDFAsset`.
-See `GymFrankaBlockVecEnv._file_scene` in `carbongym_utils/rl/franka_vec_env.py` for an example.
+See `GymFrankaBlockVecEnv._file_scene` in `isaacgym_utils/rl/franka_vec_env.py` for an example.

@@ -7,7 +7,7 @@ from simple_zmq import SimpleZMQPublisher
 from autolab_core import RigidTransform
 from perception import CameraIntrinsics, ColorImage, DepthImage, SegmentationImage
 
-from carbongym import gymapi
+from isaacgym import gymapi
 from .math_utils import vec3_to_np
 
 

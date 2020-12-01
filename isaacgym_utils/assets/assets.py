@@ -4,8 +4,8 @@ import os
 import numpy as np
 from autolab_core import RigidTransform
 
-from carbongym import gymapi
-from carbongym_utils.math_utils import np_to_vec3, np_to_quat, transform_to_RigidTransform, RigidTransform_to_transform
+from isaacgym import gymapi
+from isaacgym_utils.math_utils import np_to_vec3, np_to_quat, transform_to_RigidTransform, RigidTransform_to_transform
 
 
 class GymAsset(ABC):

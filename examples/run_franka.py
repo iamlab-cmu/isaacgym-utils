@@ -3,11 +3,11 @@ import argparse
 import numpy as np
 from autolab_core import YamlConfig, RigidTransform
 
-from carbongym import gymapi
-from carbongym_utils.scene import GymScene
-from carbongym_utils.assets import GymFranka, GymBoxAsset
-from carbongym_utils.math_utils import RigidTransform_to_transform
-from carbongym_utils.policy import RandomDeltaJointPolicy
+from isaacgym import gymapi
+from isaacgym_utils.scene import GymScene
+from isaacgym_utils.assets import GymFranka, GymBoxAsset
+from isaacgym_utils.math_utils import RigidTransform_to_transform
+from isaacgym_utils.policy import RandomDeltaJointPolicy
 
 
 if __name__ == "__main__":

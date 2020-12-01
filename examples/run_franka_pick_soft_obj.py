@@ -4,12 +4,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from autolab_core import YamlConfig, RigidTransform
 
-from carbongym import gymapi
-from carbongym_utils.scene import GymScene
-from carbongym_utils.assets import GymFranka, GymBoxAsset, GymTetGridAsset
-from carbongym_utils.math_utils import RigidTransform_to_transform
-from carbongym_utils.policy import GraspPointPolicy
-from carbongym_utils.draw import draw_transforms
+from isaacgym import gymapi
+from isaacgym_utils.scene import GymScene
+from isaacgym_utils.assets import GymFranka, GymBoxAsset, GymTetGridAsset
+from isaacgym_utils.math_utils import RigidTransform_to_transform
+from isaacgym_utils.policy import GraspPointPolicy
+from isaacgym_utils.draw import draw_transforms
 
 
 if __name__ == "__main__":

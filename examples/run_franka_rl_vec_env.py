@@ -3,8 +3,8 @@ import argparse
 import numpy as np
 from autolab_core import YamlConfig
 
-from carbongym_utils.rl import GymFrankaBlockVecEnv
-from carbongym_utils.draw import draw_transforms
+from isaacgym_utils.rl import GymFrankaBlockVecEnv
+from isaacgym_utils.draw import draw_transforms
 
 
 if __name__ == "__main__":

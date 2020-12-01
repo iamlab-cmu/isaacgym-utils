@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import numpy as np
-from carbongym_utils.scene import GymScene
+from isaacgym_utils.scene import GymScene
 
 
 class GymVecEnv(ABC):

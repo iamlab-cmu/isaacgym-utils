@@ -1,5 +1,5 @@
-from carbongym import gymapi
-from carbongym.gymutil import AxesGeometry, WireframeSphereGeometry, draw_lines
+from isaacgym import gymapi
+from isaacgym.gymutil import AxesGeometry, WireframeSphereGeometry, draw_lines
 
 
 force_vector_color = gymapi.Vec3(0.7, 0.2, 0.15)

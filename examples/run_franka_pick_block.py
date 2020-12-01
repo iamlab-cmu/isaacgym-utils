@@ -3,13 +3,13 @@ import argparse
 import numpy as np
 from autolab_core import YamlConfig, RigidTransform
 
-from carbongym import gymapi
-from carbongym_utils.scene import GymScene
-from carbongym_utils.assets import GymFranka, GymBoxAsset
-from carbongym_utils.camera import GymCamera, CameraZMQPublisher
-from carbongym_utils.math_utils import RigidTransform_to_transform, vec3_to_np
-from carbongym_utils.policy import GraspBlockPolicy
-from carbongym_utils.draw import draw_transforms
+from isaacgym import gymapi
+from isaacgym_utils.scene import GymScene
+from isaacgym_utils.assets import GymFranka, GymBoxAsset
+from isaacgym_utils.camera import GymCamera, CameraZMQPublisher
+from isaacgym_utils.math_utils import RigidTransform_to_transform, vec3_to_np
+from isaacgym_utils.policy import GraspBlockPolicy
+from isaacgym_utils.draw import draw_transforms
 
 
 if __name__ == "__main__":
