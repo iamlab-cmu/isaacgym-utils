@@ -9,7 +9,7 @@ from isaacgym_utils.assets import GymFranka, GymBoxAsset
 from isaacgym_utils.camera import GymCamera, CameraZMQPublisher
 from isaacgym_utils.math_utils import RigidTransform_to_transform
 from isaacgym_utils.policy import GraspBlockPolicy
-from isaacgym_utils.draw import draw_transforms
+from isaacgym_utils.draw import draw_transforms, draw_contacts
 
 
 if __name__ == "__main__":
@@ -63,6 +63,7 @@ if __name__ == "__main__":
                 transforms.append(cam_transform)
 
             draw_transforms(scene, [env_idx], transforms)
+        draw_contacts(scene, scene.env_idxs)
 
     def cb(scene, _, __):
         env_idx = 0

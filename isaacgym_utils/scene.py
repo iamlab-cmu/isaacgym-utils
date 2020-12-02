@@ -242,9 +242,8 @@ class GymScene:
     def step(self):
         self._gym.simulate(self._sim)
         self._gym.fetch_results(self._sim, True)
-        # TODO(jacky): Update to use new API
-        # if self.is_cts_enabled:
-        #     self._propagate_asset_cts()
+        if self.is_cts_enabled:
+            self._propagate_asset_cts()
 
     def render(self, custom_draws=None):
         if self.gui:
