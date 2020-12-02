@@ -27,8 +27,10 @@ if __name__ == "__main__":
     table_transform = gymapi.Transform(p=gymapi.Vec3(cfg['table']['dims']['sx']/3, 0, cfg['table']['dims']['sz']/2))
     franka_transform = gymapi.Transform(p=gymapi.Vec3(0, 0, cfg['table']['dims']['sz'] + 0.01))
     
-    scene.add_asset('table0', table, table_transform)
-    scene.add_asset('franka0', franka, franka_transform, collision_filter=2) # avoid self-collision
+    def setup(scene, _):
+        scene.add_asset('table0', table, table_transform)
+        scene.add_asset('franka0', franka, franka_transform, collision_filter=2) # avoid self-collision
+    scene.setup_all_envs(setup)
 
     def custom_draws(scene):
         draw_transforms(scene, scene.env_idxs, [franka_transform], length=0.2)

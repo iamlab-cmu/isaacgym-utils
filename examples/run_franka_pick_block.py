@@ -36,17 +36,19 @@ if __name__ == "__main__":
     
     table_name, franka_name, block_name = 'table0', 'franka0', 'block0'
 
-    scene.add_asset(table_name, table, table_transform)
-    scene.add_asset(franka_name, franka, franka_transform, collision_filter=2) # avoid self-collisions
-    scene.add_asset(block_name, block, gymapi.Transform()) # we'll sample block poses later
-
     cam = GymCamera(scene.gym, scene.sim, cam_props=cfg['camera'])
     cam_offset_transform = RigidTransform_to_transform(RigidTransform(
-        rotation=RigidTransform.x_axis_rotation(-np.pi/2) @ RigidTransform.z_axis_rotation(-np.pi/2),
-        translation=np.array([-0.046490, -0.083270, 0])
+        rotation=RigidTransform.z_axis_rotation(np.deg2rad(90)) @ RigidTransform.x_axis_rotation(np.deg2rad(1)),
+        translation=np.array([-0.083270, -0.046490, 0])
     ))
-    scene.attach_camera('hand_cam0', cam, franka_name, 'panda_hand', offset_transform=cam_offset_transform)
     cam_pub = CameraZMQPublisher()
+
+    def setup(scene, _):
+        scene.add_asset(table_name, table, table_transform)
+        scene.add_asset(franka_name, franka, franka_transform, collision_filter=2) # avoid self-collisions
+        scene.add_asset(block_name, block, gymapi.Transform()) # we'll sample block poses later
+        scene.attach_camera('hand_cam0', cam, franka_name, 'panda_hand', offset_transform=cam_offset_transform)
+    scene.setup_all_envs(setup)    
 
     def custom_draws(scene):
         for env_idx in scene.env_idxs:

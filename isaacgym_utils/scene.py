@@ -26,11 +26,11 @@ class GymScene:
             self._gym.viewer_camera_look_at(self._viewer, None, cam_pos, look_at)
 
         # create envs
-        lower = gymapi.Vec3(-cfg['es'], 0.0, -cfg['es'])
-        upper = gymapi.Vec3(cfg['es'], cfg['es'], cfg['es'])
-        num_per_row = int(np.sqrt(self._n_envs))
+        self._env_lower = gymapi.Vec3(-cfg['es'], 0.0, -cfg['es'])
+        self._env_upper = gymapi.Vec3(cfg['es'], cfg['es'], cfg['es'])
+        self._env_num_per_row = int(np.sqrt(self._n_envs))
 
-        self.env_ptrs = [self._gym.create_env(self._sim, lower, upper, num_per_row) for _ in range(self._n_envs)]
+        self.env_ptrs = [self._gym.create_env(self._sim, self._env_lower, self._env_upper, self._env_num_per_row)]
 
         # track assets
         self._assets = {idx : {} for idx in self.env_idxs}
@@ -50,6 +50,27 @@ class GymScene:
         self._all_cts_cache_raw = None
         self._all_cts_rb_counts_cache = None
         self._all_cts_cache_raw_max_cts_per_rb = 20 # this will be dynamically resized
+
+        # current mutable env
+        self._current_mutable_env_idx = 0
+
+    @property
+    def current_mutable_env_idx(self):
+        return self._current_mutable_env_idx
+
+    def increment_mutable_env_idx(self):
+        if self._current_mutable_env_idx < self.n_envs - 1:
+            self._current_mutable_env_idx += 1
+            self.env_ptrs.append(self._gym.create_env(self._sim, self._env_lower, self._env_upper, self._env_num_per_row))
+        else:
+            raise ValueError('Cannot increment mutable env idx beyond n_envs specified in scene cfg!')
+
+    def setup_all_envs(self, setup):
+        while True:
+            setup(self, self.current_mutable_env_idx)
+            if self.current_mutable_env_idx == self.n_envs - 1:
+                break
+            self.increment_mutable_env_idx()
 
     @property
     def dt(self):
@@ -88,70 +109,61 @@ class GymScene:
     def is_cts_enabled(self):
         return self._cts
 
-    def add_standalone_camera(self, name, camera, pos, look_at, envs=None):
-        if envs is None:
-            envs = self.env_idx
+    def add_standalone_camera(self, name, camera, pos, look_at):
+        env_idx = self.current_mutable_env_idx
+        if name in self.ch_map[env_idx]:
+            raise ValueError('Camera {} has already been added to env {}!'.format(name, env_idx))
+        env_ptr = self.env_ptrs[env_idx]
 
-        for env_idx in envs:
-            if name in self.ch_map[env_idx]:
-                raise ValueError('Camera {} has already been added to env {}!'.format(name, env_idx))
-            env_ptr = self.env_ptrs[env_idx]
+        ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
+        self._gym.set_camera_location(ch, env_ptr, pos, look_at)
+        self.ch_map[env_idx][name] = ch
 
-            ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
-            self._gym.set_camera_location(ch, env_ptr, pos, look_at)
-            self.ch_map[env_idx][name] = ch
-
-    def attach_camera(self, name, camera, actor_name, rb_name, offset_transform=None, envs=None, pos_only=False):
-        if envs is None:
-            envs = self.env_idxs
-
+    def attach_camera(self, name, camera, actor_name, rb_name, offset_transform=None):
         if offset_transform is None:
             offset_transform = gymapi.Transform()
 
-        for env_idx in envs:
-            if name in self.ch_map[env_idx]:
-                raise ValueError('Camera {} has already been added to env {}!'.format(name, env_idx))
-            env_ptr = self.env_ptrs[env_idx]
+        env_idx = self.current_mutable_env_idx
+        if name in self.ch_map[env_idx]:
+            raise ValueError('Camera {} has already been added to env {}!'.format(name, env_idx))
+        env_ptr = self.env_ptrs[env_idx]
 
-            ah = self.ah_map[env_idx][actor_name]
-            asset = self.get_asset(actor_name)
-            rb_idx = asset.rb_names_map[rb_name]
-            rbh = self._gym.get_actor_rigid_body_handle(env_ptr, ah, rb_idx)
+        ah = self.ah_map[env_idx][actor_name]
+        asset = self.get_asset(actor_name)
+        rb_idx = asset.rb_names_map[rb_name]
+        rbh = self._gym.get_actor_rigid_body_handle(env_ptr, ah, rb_idx)
 
-            ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
-            self._gym.attach_camera_to_body(ch, env_ptr, rbh, offset_transform, 0 if pos_only else 1)
-            self.ch_map[env_idx][name] = ch
+        ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
+        self._gym.attach_camera_to_body(ch, env_ptr, rbh, offset_transform, 1)
+        self.ch_map[env_idx][name] = ch
 
     def get_asset(self, name, env_idx=0):
         return self._assets[env_idx][name]
 
-    def add_asset(self, name, asset, poses, collision_filter=0, envs=None):
-        if envs is None:
-            envs = self.env_idxs
+    def add_asset(self, name, asset, poses, collision_filter=0):
+        env_idx = self.current_mutable_env_idx
+        env_ptr = self.env_ptrs[env_idx]
 
-        for env_idx in envs:
-            env_ptr = self.env_ptrs[env_idx]
+        if name in self._assets[env_idx]:
+            raise ValueError('Asset {} has already been added to env {}!'.format(name, env_idx))
+        self._assets[env_idx][name] = asset
 
-            if name in self._assets[env_idx]:
-                raise ValueError('Asset {} has already been added to env {}!'.format(name, env_idx))
-            self._assets[env_idx][name] = asset
+        if type(poses) == list:
+            pose = poses[env_idx]
+        else:
+            pose = poses
 
-            if type(poses) == list:
-                pose = poses[env_idx]
-            else:
-                pose = poses
+        ah = self._gym.create_actor(env_ptr, asset.GLOBAL_ASSET_CACHE[asset.asset_uid], pose, name, env_idx, collision_filter, self._seg_id)
+        asset.post_create_actor(env_idx, name, ah)
 
-            ah = self._gym.create_actor(env_ptr, asset.GLOBAL_ASSET_CACHE[asset.asset_uid], pose, name, env_idx, collision_filter, self._seg_id)
-            asset.post_create_actor(env_idx, name, ah)
+        asset.set_shape_props(env_idx, ah)
+        asset.set_rb_props(env_idx, ah)
+        asset.set_dof_props(env_idx, ah)
 
-            asset.set_shape_props(env_idx, ah)
-            asset.set_rb_props(env_idx, ah)
-            asset.set_dof_props(env_idx, ah)
+        self.ah_map[env_idx][name] = ah
 
-            self.ah_map[env_idx][name] = ah
-
-            self.seg_id_map[env_idx][name] = self._seg_id
-            self._seg_id += 1
+        self.seg_id_map[env_idx][name] = self._seg_id
+        self._seg_id += 1
 
         # update cts cache size
         self._n_rbs = self._gym.get_sim_rigid_body_count(self._sim)
@@ -332,7 +344,6 @@ def make_gym(sim_cfg):
         else:
             setattr(sim_params, key, val)
 
-    sim_params.enable_actor_creation_warning = False
     sim = gym.create_sim(compute_device, graphics_device, physics_engine, sim_params)
     gym.add_ground(sim, plane_params)
 
