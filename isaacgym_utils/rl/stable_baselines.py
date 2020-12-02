@@ -2,7 +2,7 @@
 To make vec_env.GymVecEnv compatible with stable_baselines
 '''
 
-from stable_baselines.common.vec_env import VecEnv
+from stable_baselines3.common.vec_env import VecEnv
 from .franka_vec_env import GymFrankaBlockVecEnv
 
 

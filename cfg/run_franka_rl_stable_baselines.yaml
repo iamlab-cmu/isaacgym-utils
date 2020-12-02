@@ -2,21 +2,25 @@ scene:
   n_envs: 20
   es: 1
   gui: 1
+  cam:
+    cam_pos: [1.2, 0, 1.2]
+    look_at: [0.5, 0, 1]
   gym:
     dt: 0.01
     substeps: 2
+    up_axis: z
     flex:
-    solver_type: 5
-    num_outer_iterations: 4
-    num_inner_iterations: 30
-    relaxation: 0.75
-    warm_start: 0.8
-    shape_collision_margin: 1e-3
-    contact_regularization: 1e-7
-    deterministic_mode: True
+      solver_type: 5
+      num_outer_iterations: 4
+      num_inner_iterations: 30
+      relaxation: 0.75
+      warm_start: 0.8
+      shape_collision_margin: 1e-3
+      contact_regularization: 1e-7
+      deterministic_mode: True
     device:
-    compute: 0
-    graphics: 0
+      compute: 0
+      graphics: 0
 
 franka:
   asset_options:
@@ -63,9 +67,9 @@ franka:
 
 table:
   dims:
-    width: 1
-    height: 0.5
-    depth: 1
+    sx: 1
+    sy: 1
+    sz: 0.5
   shape_props:
     friction: 0.1
     rolling_friction: 0
@@ -76,9 +80,9 @@ table:
 
 block:
   dims:
-    width: 0.05
-    height: 0.05
-    depth: 0.05
+    sx: 0.05
+    sy: 0.05
+    sz: 0.05
   shape_props:
     friction: 0.2
     rolling_friction: 0.01
@@ -111,7 +115,7 @@ rl:
     learning_rate: 2.5e-4
     vf_coef: 0.5
     max_grad_norm: 0.5
-    lam: 0.95
-    nminibatches: 4
-    noptepochs: 4
-    cliprange: 0.2
+    gae_lambda: 0.95
+    batch_size: 32
+    n_epochs: 10
+    clip_range: 0.2

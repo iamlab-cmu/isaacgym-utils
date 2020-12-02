@@ -8,8 +8,7 @@ from autolab_core import YamlConfig
 from isaacgym_utils.rl.stable_baselines import GymFrankaBlockVecEnvStableBaselines
 from isaacgym_utils.draw import draw_transforms
 
-from stable_baselines.common.policies import MlpPolicy
-from stable_baselines import PPO2
+from stable_baselines3 import PPO
 
 
 if __name__ == "__main__":
@@ -23,12 +22,12 @@ if __name__ == "__main__":
 
     def custom_draws(scene):
         franka = scene.get_asset('franka0')
-        for env_ptr in scene.env_ptrs:
-            ee_transform = franka.get_ee_transform(env_ptr, 'franka0')
-            draw_transforms(scene.gym, scene.viewer, [env_ptr], [ee_transform])
+        for env_idx in scene.env_idxs:
+            ee_transform = franka.get_ee_transform(env_idx, 'franka0')
+            draw_transforms(scene, [env_idx], [ee_transform])
 
     def learn_cb(local_vars, global_vars):        
         vec_env.render(custom_draws=custom_draws)
 
-    model = PPO2(MlpPolicy, env=vec_env, verbose=1, tensorboard_log=args.logdir, **cfg['rl']['ppo'])
+    model = PPO('MlpPolicy', env=vec_env, verbose=1, tensorboard_log=args.logdir, **cfg['rl']['ppo'])
     model.learn(total_timesteps=cfg['rl']['total_timesteps'], callback=learn_cb, reset_num_timesteps=False)

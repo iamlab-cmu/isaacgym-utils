@@ -67,9 +67,9 @@ franka:
 
 table:
   dims:
-    width: 1
-    height: 0.5
-    depth: 1
+    sx: 1
+    sy: 1
+    sz: 0.5
   shape_props:
     friction: 0.1
     rolling_friction: 0
@@ -80,9 +80,9 @@ table:
 
 block:
   dims:
-    width: 0.05
-    height: 0.05
-    depth: 0.05
+    sx: 0.05
+    sy: 0.05
+    sz: 0.05
   shape_props:
     friction: 0.2
     rolling_friction: 0.01

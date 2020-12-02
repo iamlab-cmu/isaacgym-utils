@@ -55,27 +55,27 @@ class GymFranka(GymURDFAsset):
         self._attractor_stiffness = cfg['attractor_props']['stiffness']
         self._attractor_damping = cfg['attractor_props']['damping']
 
-    def set_gripper_width_target(self, env_ptr, ah, width):
-        joints_targets = self.get_joints_targets(env_ptr, ah)
+    def set_gripper_width_target(self, env_idx, ah, width):
+        joints_targets = self.get_joints_targets(env_idx, ah)
         joints_targets[-2:] = width
-        self.set_joints_targets(env_ptr, ah, joints_targets)
+        self.set_joints_targets(env_idx, ah, joints_targets)
 
-    def open_grippers(self, env_ptr, ah):
-        self.set_gripper_width_target(env_ptr, ah, 0.04)
+    def open_grippers(self, env_idx, ah):
+        self.set_gripper_width_target(env_idx, ah, 0.04)
 
-    def close_grippers(self, env_ptr, ah):
-        self.set_gripper_width_target(env_ptr, ah, 0)
+    def close_grippers(self, env_idx, ah):
+        self.set_gripper_width_target(env_idx, ah, 0)
 
-    def set_gripper_width(self, env_ptr, ah, width):
+    def set_gripper_width(self, env_idx, ah, width):
         width = np.clip(width, self._LOWER_LIMITS[-1], self._UPPER_LIMITS[-1])
-        self.set_gripper_width_target(env_ptr, ah, width)
+        self.set_gripper_width_target(env_idx, ah, width)
 
-        joints = self.get_joints(env_ptr, ah)
+        joints = self.get_joints(env_idx, ah)
         joints[-2] = width
-        self.set_joints(env_ptr, ah, joints)
+        self.set_joints(env_idx, ah, joints)
 
-    def get_gripper_width(self, env_ptr, ah):
-        return self.get_joints(env_ptr, ah)[-1]
+    def get_gripper_width(self, env_idx, ah):
+        return self.get_joints(env_idx, ah)[-1]
 
     def get_ee_transform(self, env_idx, name, offset=True):
         env_ptr = self._gym.get_env(self._sim, env_idx)
@@ -85,11 +85,12 @@ class GymFranka(GymURDFAsset):
             ee_transform = ee_transform * self._gripper_offset * self._ee_tool_offset
         return ee_transform
 
-    def get_ee_rigid_transform(self, env_ptr, name, offset=True):
-        return transform_to_RigidTransform(self.get_ee_transform(env_ptr, name, offset=offset), 
+    def get_ee_rigid_transform(self, env_idx, name, offset=True):
+        return transform_to_RigidTransform(self.get_ee_transform(env_idx, name, offset=offset), 
                                                 from_frame='panda_ee', to_frame='panda_link0')
 
-    def get_finger_transforms(self, env_ptr, name, offset=True):
+    def get_finger_transforms(self, env_idx, name, offset=True):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         bh_lf = self._gym.get_rigid_handle(env_ptr, name, 'panda_leftfinger')
         bh_rf = self._gym.get_rigid_handle(env_ptr, name, 'panda_rightfinger')
         lf_transform = self._gym.get_rigid_transform(env_ptr, bh_lf)
@@ -108,28 +109,31 @@ class GymFranka(GymURDFAsset):
         key = self._key(env_idx, name)
         return self._attractor_transforms_map[key]
 
-    def get_left_finger_ct_forces(self, env_ptr, ah):
+    def get_left_finger_ct_forces(self, env_idx, ah):
         all_ct_forces = self._gym.get_rigid_contact_forces(self._sim)
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         rbi_lf = self._gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map['panda_leftfinger'], gymapi.DOMAIN_SIM)
         ct_forces_lf = np.array([all_ct_forces[rbi_lf][k] for k in 'xyz'])
 
         return ct_forces_lf
 
-    def get_right_finger_ct_forces(self, env_ptr, ah):
+    def get_right_finger_ct_forces(self, env_idx, ah):
         all_ct_forces = self._gym.get_rigid_contact_forces(self._sim)
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         rbi_rf = self._gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map['panda_rightfinger'], gymapi.DOMAIN_SIM)
         ct_forces_rf = np.array([all_ct_forces[rbi_rf][k] for k in 'xyz'])
 
         return ct_forces_rf
 
-    def get_ee_ct_forces(self, env_ptr, ah):
+    def get_ee_ct_forces(self, env_idx, ah):
         if self._use_custom_ee:
             all_ct_forces = self._gym.get_rigid_contact_forces(self._sim)
+            env_ptr = self._gym.get_env(self._sim, env_idx)
             rbi = self._gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._custom_ee_rb_name], gymapi.DOMAIN_SIM)
             ct_forces = np.array([all_ct_forces[rbi][k] for k in 'xyz'])
         else:
-            ct_forces_lf = self.get_left_finger_ct_forces(env_ptr, ah)
-            ct_forces_rf = self.get_right_finger_ct_forces(env_ptr, ah)
+            ct_forces_lf = self.get_left_finger_ct_forces(env_idx, ah)
+            ct_forces_rf = self.get_right_finger_ct_forces(env_idx, ah)
             ct_forces = (ct_forces_lf + ct_forces_rf) / 2
 
         return ct_forces
@@ -194,9 +198,10 @@ class GymFranka(GymURDFAsset):
 
         self.set_actuation_mode(self._actuation_mode, env_idx, name, ah)
 
-    def set_attractor_props(self, env_idx, env_ptr, name, props):
+    def set_attractor_props(self, env_idx, name, props):
         if self._actuation_mode != 'attractors':
             raise ValueError('Not using attractors!')
+        env_ptr = self._gym.get_env(self._sim, env_idx)
 
         key = self._key(env_idx, name)
         ath = self._attractor_handles_map[key]
@@ -218,33 +223,34 @@ class GymFranka(GymURDFAsset):
         env_ptr = self._gym.get_env(self._sim, env_idx)
         self._gym.set_attractor_target(env_ptr, attractor_handle, transform)
 
-    def set_delta_ee_transform(self, env_ptr, env_idx, name, transform):
+    def set_delta_ee_transform(self, env_idx, name, transform):
         ''' This performs delta translation in the global frame and
             delta rotation in the end-effector frame.
         '''
-        current_transform = self.get_ee_transform(env_ptr, name)
+        current_transform = self.get_ee_transform(env_idx, name)
         desired_transform = gymapi.Transform(p=current_transform.p, r=current_transform.r)
         desired_transform.p = desired_transform.p + transform.p
         desired_transform.r = transform.r * desired_transform.r
 
-        self.set_ee_transform(env_ptr, env_idx, name, desired_transform)
+        self.set_ee_transform(env_idx, name, desired_transform)
 
-    def apply_torque(self, env_ptr, ah, tau):
+    def apply_torque(self, env_idx, ah, tau):
         if len(tau) == 7:
             tau = np.concatenate([tau, np.zeros(2)])
 
-        self.apply_actor_dof_efforts(env_ptr, ah, tau)
+        self.apply_actor_dof_efforts(env_idx, ah, tau)
 
-    def apply_actions(self, env_ptr, env_idx, ah, name, action_type, actions):
+    def apply_actions(self, env_idx, ah, name, action_type, actions):
         if action_type == 'ee_targets':
-            self.set_ee_transform(env_ptr, env_idx, name, actions)
+            self.set_ee_transform(env_idx, env_idx, name, actions)
         elif action_type == 'delta_ee_targets':
-            self.set_delta_ee_transform(env_ptr, env_idx, name, actions)
+            self.set_delta_ee_transform(env_idx, env_idx, name, actions)
         else:
-            super().apply_actions(env_ptr, env_idx, ah, name, action_type, actions)
+            super().apply_actions(env_idx, env_idx, ah, name, action_type, actions)
 
-    def get_links_transforms(self, env_ptr, name):
+    def get_links_transforms(self, env_idx, name):
         transforms = []
+        env_ptr = self._gym.get_env(self._sim, env_idx)
         for i in range(1, 8):
             link_name = 'panda_link{}'.format(i)
             bh = self._gym.get_rigid_handle(env_ptr, name, link_name)
@@ -252,16 +258,16 @@ class GymFranka(GymURDFAsset):
 
         return transforms
 
-    def get_links_rigid_transforms(self, env_ptr, name):
-        transforms = self.get_links_transforms(env_ptr, name)
+    def get_links_rigid_transforms(self, env_idx, name):
+        transforms = self.get_links_transforms(env_idx, name)
         return [transform_to_RigidTransform(transform, 
                                         from_frame='panda_link{}'.format(i+1), 
                                         to_frame='panda_link0') 
                 for i, transform in enumerate(transforms)]
 
-    def get_jacobian(self, env_ptr, name):
-        transforms = self.get_links_transforms(env_ptr, name)
-        ee_pos = vec3_to_np(self.get_ee_transform(env_ptr, name).p)
+    def get_jacobian(self, env_idx, name):
+        transforms = self.get_links_transforms(env_idx, name)
+        ee_pos = vec3_to_np(self.get_ee_transform(env_idx, name).p)
 
         joints_pos = np.array([vec3_to_np(transform.p) for transform in transforms])
         axes = np.array([quat_to_rot(transform.r)[:, 2] for transform in transforms])
@@ -269,6 +275,6 @@ class GymFranka(GymURDFAsset):
 
         return J
 
-    def reset_joints(self, env_ptr, ah):
-        self.set_joints(env_ptr, ah, self.INIT_JOINTS)
+    def reset_joints(self, env_idx, ah):
+        self.set_joints(env_idx, ah, self.INIT_JOINTS)
     

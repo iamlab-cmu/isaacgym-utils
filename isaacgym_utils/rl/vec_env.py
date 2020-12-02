@@ -9,7 +9,8 @@ class GymVecEnv(ABC):
         self._cfg = cfg
         self._scene = GymScene(cfg['scene'])
 
-        self._fill_scene(cfg)
+        setup = self._setup_single_env_gen(cfg)
+        self._scene.setup_all_envs(setup)
         self._action_space = self._init_action_space(cfg)
         self._obs_space = self._init_obs_space(cfg)
         self._init_rews(cfg)
@@ -66,7 +67,7 @@ class GymVecEnv(ABC):
         return self._n_inter_steps
 
     @abstractmethod
-    def _fill_scene(self, cfg):
+    def _setup_single_env_gen(self, cfg):
         pass
 
     @abstractmethod

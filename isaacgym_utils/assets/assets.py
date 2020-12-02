@@ -145,7 +145,7 @@ class GymAsset(ABC):
                 self._gym.set_rigid_body_color(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, np_to_vec3([1, 1, 1]))
                 # create and set texture
                 if rb_props['texture'] not in self.GLOBAL_TEXTURES_CACHE:
-                    self.GLOBAL_TEXTURES_CACHE[rb_props['texture']] = self._gym.create_texture_from_file(self._sim, self._assets_root / rb_props['texture'])
+                    self.GLOBAL_TEXTURES_CACHE[rb_props['texture']] = self._gym.create_texture_from_file(self._sim, str(self._assets_root / rb_props['texture']))
                 th = self.GLOBAL_TEXTURES_CACHE[rb_props['texture']]
                 self._gym.set_rigid_body_texture(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, th)
 
@@ -340,7 +340,8 @@ class GymURDFAsset(GymAsset):
         return self.set_joints_targets(env_idx, ah, dof_targets)
 
     def apply_actor_dof_efforts(self, env_idx, ah, tau):
-        self._gym.apply_actor_dof_efforts(env_idx, ah, tau.astype('float32'))
+        env_ptr = self._gym.get_env(self._sim, env_idx)
+        self._gym.apply_actor_dof_efforts(env_ptr, ah, tau.astype('float32'))
 
     def apply_actions(self, env_idx, ah, name, action_type, actions):
         if action_type == 'delta_joints_targets':
