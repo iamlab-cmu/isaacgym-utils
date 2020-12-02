@@ -1,5 +1,5 @@
 scene:
-  n_envs: 10
+  n_envs: 1
   es: 1
   gui: 1
   cam:
@@ -42,9 +42,9 @@ franka:
 
 table:
   dims:
-    width: 1
-    height: 0.5
-    depth: 1
+    sx: 1
+    sy: 1
+    sz: 0.5
   shape_props:
     friction: 0.1
     rolling_friction: 0
@@ -56,4 +56,3 @@ table:
 camera:
   width: 320
   height: 240
-

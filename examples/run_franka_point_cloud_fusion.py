@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm
-from autolab_core import YamlConfig, RigidTransform
+from autolab_core import YamlConfig, RigidTransform, PointCloud
 
 from isaacgym import gymapi
 from isaacgym_utils.scene import GymScene
@@ -42,24 +42,48 @@ if __name__ == "__main__":
                         asset_options=cfg['table']['asset_options']
                         )
     franka = GymFranka(cfg['franka'], scene.gym, scene.sim,actuation_mode='attractors')
-
-    table_pose = RigidTransform_to_transform(RigidTransform(
-        translation=[cfg['table']['dims']['width']/3, cfg['table']['dims']['height']/2, 0]
-    ))
-    franka_pose = RigidTransform_to_transform(RigidTransform(
-        translation=[0, cfg['table']['dims']['height'] + 0.01, 0],
-        rotation=RigidTransform.quaternion_from_axis_angle([-np.pi/2, 0, 0])
-    ))
-
-    scene.add_asset('table0', table, table_pose)
-    scene.add_asset('franka0', franka, franka_pose, collision_filter=2) # avoid self-collision
-
+    table_transform = gymapi.Transform(p=gymapi.Vec3(cfg['table']['dims']['sx']/3, 0, cfg['table']['dims']['sz']/2))
+    franka_transform = gymapi.Transform(p=gymapi.Vec3(0, 0, cfg['table']['dims']['sz'] + 0.01))
+    
     # Add cameras
     cam = GymCamera(scene.gym, scene.sim, cam_props=cfg['camera'])
-    scene.add_standalone_camera('cam0', cam, gymapi.Vec3(1.38, 1.0, 0), gymapi.Vec3(1.0, .5, 0)) # front
-    scene.add_standalone_camera('cam1', cam, gymapi.Vec3(0.5, 1.0, .8), gymapi.Vec3(.6, 0, 0)) # left
-    scene.add_standalone_camera('cam2', cam, gymapi.Vec3(0.5, 1.0, -0.8), gymapi.Vec3(.6, 0, 0)) # right
-    cam_names = ['cam{}'.format(i) for i in range(3)]
+    cam_names = [f'cam{i}' for i in range(3)]
+    
+    def setup(scene, _):
+        scene.add_asset('table0', table, table_transform)
+        scene.add_asset('franka0', franka, franka_transform, collision_filter=2) # avoid self-collision
+
+        # front
+        scene.add_standalone_camera(cam_names[0], cam, RigidTransform_to_transform(
+            RigidTransform(
+                translation=[1.38, 0, 1],
+                rotation=np.array([
+                    [0, 0, -1],
+                    [1, 0, 0],
+                    [0, -1, 0]
+                ]) @ RigidTransform.x_axis_rotation(np.deg2rad(-45)) @ RigidTransform.y_axis_rotation(np.deg2rad(1))
+        )))
+        # left
+        scene.add_standalone_camera(cam_names[1], cam, RigidTransform_to_transform(
+            RigidTransform(
+                translation=[0.5, -0.8, 1],
+                rotation=np.array([
+                    [1, 0, 0],
+                    [0, 0, 1],
+                    [0, -1, 0]
+                ]) @ RigidTransform.x_axis_rotation(np.deg2rad(-45)) @ RigidTransform.y_axis_rotation(np.deg2rad(1))
+        )))
+        # right
+        scene.add_standalone_camera(cam_names[2], cam, RigidTransform_to_transform(
+            RigidTransform(
+                translation=[0.5, 0.8, 1],
+                rotation=np.array([
+                    [-1, 0, 0],
+                    [0, 0, -1],
+                    [0, -1, 0]
+                ]) @ RigidTransform.x_axis_rotation(np.deg2rad(-45)) @ RigidTransform.y_axis_rotation(np.deg2rad(1))
+        )))
+    scene.setup_all_envs(setup)
 
     # Render images
     scene.render_cameras()
@@ -79,7 +103,11 @@ if __name__ == "__main__":
     intrs = [cam.get_intrinsics(cam_name) for cam_name in cam_names]
 
     # Deproject to point clouds
-    pcs_cam = [intrs[i].deproject(depth) for i, depth in enumerate(depth_list)]
+    pcs_cam = []
+    for i, depth in enumerate(depth_list):
+        pc_raw = intrs[i].deproject(depth)
+        points_filtered = pc_raw.data[:, np.logical_not(np.any(pc_raw.data > 5, axis=0))]
+        pcs_cam.append(PointCloud(points_filtered, pc_raw.frame))
 
     # Get camera poses
     camera_poses = [

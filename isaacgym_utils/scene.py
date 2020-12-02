@@ -3,6 +3,7 @@ from numba import jit
 from isaacgym import gymapi
 
 from .math_utils import np_to_vec3
+from .constants import quat_real_to_gym_cam
 
 
 class GymScene:
@@ -109,14 +110,16 @@ class GymScene:
     def is_cts_enabled(self):
         return self._cts
 
-    def add_standalone_camera(self, name, camera, pos, look_at):
+    def add_standalone_camera(self, name, camera, transform):
         env_idx = self.current_mutable_env_idx
         if name in self.ch_map[env_idx]:
             raise ValueError('Camera {} has already been added to env {}!'.format(name, env_idx))
         env_ptr = self.env_ptrs[env_idx]
 
+        transform.r = transform.r * quat_real_to_gym_cam
+
         ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
-        self._gym.set_camera_location(ch, env_ptr, pos, look_at)
+        self._gym.set_camera_transform(ch, env_ptr, transform)
         self.ch_map[env_idx][name] = ch
 
     def attach_camera(self, name, camera, actor_name, rb_name, offset_transform=None):

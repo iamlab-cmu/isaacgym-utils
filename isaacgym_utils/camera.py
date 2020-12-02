@@ -8,7 +8,8 @@ from autolab_core import RigidTransform
 from perception import CameraIntrinsics, ColorImage, DepthImage, SegmentationImage
 
 from isaacgym import gymapi
-from .math_utils import vec3_to_np, transform_to_RigidTransform
+from .math_utils import vec3_to_np, transform_to_RigidTransform, quat_to_rot, quat_to_rot
+from .constants import quat_gym_to_real_cam
 
 
 class GymCamera:
@@ -43,21 +44,12 @@ class GymCamera:
         env_ptr = self._gym.get_env(self._sim, env_idx)
         transform = self._gym.get_camera_transform(self._sim, env_ptr, ch)
 
-        # fix rotation to the standard camera coordinate frame (z forward, x right, y down)
-        transform.r = gymapi.Quat(0, 1, 0, 0) * transform.r
+        transform.r = transform.r * quat_gym_to_real_cam
         return transform
 
     def get_extrinsics(self, ch, frame_name, env_idx):
         transform = self.get_transform(ch, env_idx)
         return transform_to_RigidTransform(transform, frame_name, 'world')
-        # # TODO(jacky): get_camera_view_matrix returns a 0 matrix
-        # env_ptr = self._gym.get_env(self._sim, env_idx)
-        # IV = np.linalg.inv(self._gym.get_camera_view_matrix(self._sim, env_ptr, ch)).T
-        
-        # R = IV[:3, :3] @ self._x_axis_rot
-        # T = IV[:3, 3] - vec3_to_np(self._gym.get_env_origin(env_ptr))
-
-        # return RigidTransform(rotation=R, translation=T, from_frame=frame_name, to_frame='world')
 
     def get_intrinsics(self, frame_name):
         hx, hy = self.width/2, self.height/2

@@ -7,6 +7,7 @@ requirements = [
     'autolab_perception',
     'visualization',
     'simple_zmq',
+    'triangle',
     'numba',
     'numpy-quaternion',
     'gym'
