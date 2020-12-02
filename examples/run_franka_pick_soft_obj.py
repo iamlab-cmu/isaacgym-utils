@@ -31,29 +31,26 @@ if __name__ == "__main__":
                             shape_props=cfg['softbody']['shape_props']
                             )
 
-    table_pose = RigidTransform_to_transform(RigidTransform(
-        translation=[cfg['table']['dims']['width']/3, cfg['table']['dims']['height']/2, 0]
-    ))
-    franka_pose = RigidTransform_to_transform(RigidTransform(
-        translation=[0, cfg['table']['dims']['height'] + 0.01, 0],
-        rotation=RigidTransform.quaternion_from_axis_angle([-np.pi/2, 0, 0])
-    ))
-    softgrid_pose = gymapi.Transform(p=gymapi.Vec3(0.3, 0.52, -0.025))    
+    table_transform = gymapi.Transform(p=gymapi.Vec3(cfg['table']['dims']['sx']/3, 0, cfg['table']['dims']['sz']/2))
+    franka_transform = gymapi.Transform(p=gymapi.Vec3(0, 0, cfg['table']['dims']['sz'] + 0.01))
+    softgrid_pose = gymapi.Transform(p=gymapi.Vec3(0.3, -0.025, 0.52))    
 
     def custom_draws(scene):
-        for i, env_ptr in enumerate(scene.env_ptrs):
-            ee_transform = franka.get_ee_transform(env_ptr, 'franka0')
-            desired_ee_transform = franka.get_desired_ee_transform(i, 'franka0')
+        for env_idx in scene.env_idxs:
+            ee_transform = franka.get_ee_transform(env_idx, 'franka0')
+            desired_ee_transform = franka.get_desired_ee_transform(env_idx, 'franka0')
 
-            draw_transforms(scene.gym, scene.viewer, [env_ptr], [ee_transform, desired_ee_transform])
+            draw_transforms(scene, [env_idx], [ee_transform, desired_ee_transform])
 
-    scene.add_asset('table0', table, table_pose)
-    scene.add_asset('franka0', franka, franka_pose, collision_filter=2) # avoid self-collision
-    scene.add_asset('softgrid0', softgrid, softgrid_pose)
+    def setup(scene, _):
+        scene.add_asset('table0', table, table_transform)
+        scene.add_asset('franka0', franka, franka_transform, collision_filter=2) # avoid self-collision
+        scene.add_asset('softgrid0', softgrid, softgrid_pose)
+    scene.setup_all_envs(setup)
 
-    ee_pose = franka.get_ee_transform(scene.env_ptrs[0], 'franka0')
+    ee_pose = franka.get_ee_transform(0, 'franka0')
     softgrid_grasp_pose = gymapi.Transform(p=softgrid_pose.p, r=ee_pose.r)
-    softgrid_grasp_pose.p.z = 0
+    softgrid_grasp_pose.p.y = 0
     softgrid_grasp_pose.p.x = 0.35
 
     policy = GraspPointPolicy(franka, 'franka0', softgrid_grasp_pose)
