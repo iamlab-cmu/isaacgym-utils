@@ -34,25 +34,15 @@ def construct_gym_scene():
         asset_options=cfg['block']['asset_options']
     )
 
-    table_pose = RigidTransform_to_transform(
-        RigidTransform(
-            translation=[
-                cfg['table']['dims']['width'] / 3,
-                cfg['table']['dims']['height'] / 2,
-                0,
-            ]
-        )
-    )
-    franka_pose = RigidTransform_to_transform(
-        RigidTransform(
-            translation=[0, cfg['table']['dims']['height'] + 0.01, 0],
-            rotation=RigidTransform.quaternion_from_axis_angle([-np.pi / 2, 0, 0]),
-        )
-    )
+    table_transform = gymapi.Transform(p=gymapi.Vec3(cfg['table']['dims']['sx']/3, 0, cfg['table']['dims']['sz']/2))
+    franka_transform = gymapi.Transform(p=gymapi.Vec3(0, 0, cfg['table']['dims']['sz'] + 0.01))
  
-    scene.add_asset('table0', table, table_pose)
-    scene.add_asset('franka0', franka, franka_pose, collision_filter=2)
-    scene.add_asset('block0', block, gymapi.Transform())
+    def setup(scene, _):
+        scene.add_asset('table0', table, table_transform)
+        scene.add_asset('franka0', franka, franka_transform, collision_filter=2)
+        scene.add_asset('block0', block, gymapi.Transform())
+    scene.setup_all_envs(setup)
+
     return scene, table, franka, block
 
 
@@ -60,26 +50,22 @@ def run_grasp_block_policy(block_poses):
     scene, table, franka, block = construct_gym_scene()
 
     def custom_draws(scene):
-        for env_idx, env_ptr in enumerate(scene.env_ptrs):
-            ee_transform = franka.get_ee_transform(env_ptr, 'franka0')
+        for env_idx in scene.env_idxs:
+            ee_transform = franka.get_ee_transform(env_idx  , 'franka0')
             desired_ee_transform = franka.get_desired_ee_transform(env_idx, 'franka0')
 
             transforms = [ee_transform, desired_ee_transform]
 
-            draw_transforms(scene.gym, scene.viewer, [env_ptr], transforms)
+            draw_transforms(scene, [env_idx], transforms)
 
     policy = GraspBlockPolicy(franka, 'franka0', block, 'block0')
 
     # set block poses
-    for i, env_ptr in enumerate(scene.env_ptrs):
-        block.set_rb_rigid_transforms(
-            env_ptr, scene.ah_map[i]['block0'], [block_poses[i]]
-        )
+    for env_idx in scene.env_idxs:
+        block.set_rb_rigid_transforms(env_idx, scene.ah_map[env_idx]['block0'], [block_poses[env_idx]])
 
     policy.reset()
-    scene.run(
-        time_horizon=policy.time_horizon, policy=policy, custom_draws=custom_draws
-    )
+    scene.run(time_horizon=policy.time_horizon, policy=policy, custom_draws=custom_draws)
 
 
 if __name__ == '__main__':
@@ -116,10 +102,8 @@ if __name__ == '__main__':
             RigidTransform(
                 translation=[
                     (np.random.rand() * 2 - 1) * 0.1 + 0.5,
-                    cfg['table']['dims']['height']
-                    + cfg['block']['dims']['height'] / 2
-                    + 0.1,
                     (np.random.rand() * 2 - 1) * 0.2,
+                    cfg['table']['dims']['sz']+ cfg['block']['dims']['sz'] / 2 + 0.1,
                 ]
             )
             for _ in range(cfg['scene']['n_envs'])
