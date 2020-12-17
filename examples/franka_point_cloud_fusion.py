@@ -30,23 +30,23 @@ def subsample(pts, rate):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', '-c', type=str, default='cfg/run_franka_point_cloud_fusion.yaml')
+    parser.add_argument('--cfg', '-c', type=str, default='cfg/franka_point_cloud_fusion.yaml')
     args = parser.parse_args()
     cfg = YamlConfig(args.cfg)
 
     # Make scene
     scene = GymScene(cfg['scene'])
     
-    table = GymBoxAsset(scene.gym, scene.sim, **cfg['table']['dims'], 
+    table = GymBoxAsset(scene, **cfg['table']['dims'], 
                         shape_props=cfg['table']['shape_props'], 
                         asset_options=cfg['table']['asset_options']
                         )
-    franka = GymFranka(cfg['franka'], scene.gym, scene.sim,actuation_mode='attractors')
+    franka = GymFranka(cfg['franka'], scene,actuation_mode='attractors')
     table_transform = gymapi.Transform(p=gymapi.Vec3(cfg['table']['dims']['sx']/3, 0, cfg['table']['dims']['sz']/2))
     franka_transform = gymapi.Transform(p=gymapi.Vec3(0, 0, cfg['table']['dims']['sz'] + 0.01))
     
     # Add cameras
-    cam = GymCamera(scene.gym, scene.sim, cam_props=cfg['camera'])
+    cam = GymCamera(scene, cam_props=cfg['camera'])
     cam_names = [f'cam{i}' for i in range(3)]
     
     def setup(scene, _):
@@ -91,7 +91,7 @@ if __name__ == "__main__":
     env_idx = 0
     for cam_name in cam_names:
         # get images of cameras in first env 
-        color, depth, _ = cam.frames(scene.ch_map[env_idx][cam_name], cam_name, env_idx)
+        color, depth, _ = cam.frames(env_idx, cam_name)
         color_list.append(color)
         depth_list.append(depth)
 
@@ -111,7 +111,7 @@ if __name__ == "__main__":
 
     # Get camera poses
     camera_poses = [
-        cam.get_extrinsics(scene.ch_map[0][cam_name], cam_name, env_idx)
+        cam.get_extrinsics(env_idx, cam_name)
         for cam_name in cam_names
     ]
 

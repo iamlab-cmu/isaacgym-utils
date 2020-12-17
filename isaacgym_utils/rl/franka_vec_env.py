@@ -21,13 +21,12 @@ class GymFrankaVecEnv(GymVecEnv):
                         }
 
     def _setup_single_env_gen(self, cfg):
-        self._table = GymBoxAsset(self._scene.gym, self._scene.sim, **cfg['table']['dims'],
+        self._table = GymBoxAsset(self._scene, **cfg['table']['dims'],
                             shape_props=cfg['table']['shape_props'],
                             asset_options=cfg['table']['asset_options']
                             )
         self._actuation_mode = self._ACTUATION_MODE_MAP[cfg['franka']['action']['mode']]
-        franka = GymFranka(cfg['franka'], self._scene.gym, self._scene.sim,
-                            actuation_mode=self._actuation_mode)
+        franka = GymFranka(cfg['franka'], self._scene, actuation_mode=self._actuation_mode)
         self._frankas = [franka] * self.n_envs
 
         table_transform = gymapi.Transform(p=gymapi.Vec3(cfg['table']['dims']['sx']/3, 0, cfg['table']['dims']['sz']/2))
@@ -139,8 +138,6 @@ class GymFrankaVecEnv(GymVecEnv):
 
     def _apply_actions(self, all_actions):
         for env_idx in self._scene.env_idxs:
-            ah = self._scene.ah_map[env_idx][self._franka_name]
-
             action = all_actions[env_idx]
             arm_action = action[:-1]
 
@@ -164,13 +161,13 @@ class GymFrankaVecEnv(GymVecEnv):
                 xa_tf = self._frankas[env_idx].get_ee_transform(env_idx, self._franka_name)
                 xa = transform_to_np(xa_tf, format='wxyz')
 
-                fa = -np.concatenate([self._frankas[env_idx].get_ee_ct_forces(env_idx, ah),
+                fa = -np.concatenate([self._frankas[env_idx].get_ee_ct_forces(env_idx, self._franka_name),
                                       [0,0,0]], axis=0)
                 fa = self._force_filter.step(fa)
                 J = self._frankas[env_idx].get_jacobian(env_idx, self._franka_name)
 
                 # The last two points are finger joints.
-                qdot = self._frankas[env_idx].get_joints_velocity(env_idx, ah)[:7]
+                qdot = self._frankas[env_idx].get_joints_velocity(env_idx, self._franka_name)[:7]
                 xdot = np.matmul(J, qdot)
 
                 xd_position = xa[:3] + arm_action[:3]
@@ -189,26 +186,24 @@ class GymFrankaVecEnv(GymVecEnv):
                 self._fp_ctrlr.set_targets(xd=xd, fd=fd, S=S)
 
                 tau = self._fp_ctrlr.step(xa, xdot, fa, J, qdot)
-                self._frankas[env_idx].apply_torque(env_idx, ah, tau)
+                self._frankas[env_idx].apply_torque(env_idx, self._franka_name, tau)
             elif self._action_mode == 'joints':
                 delta_joints = np.concatenate([arm_action, [0, 0]]) # add dummy gripper joint cmds
-                self._frankas[env_idx].apply_delta_joint_targets(env_idx, ah, delta_joints)
+                self._frankas[env_idx].apply_delta_joint_targets(env_idx, self._franka_name, delta_joints)
             else:
                 raise ValueError(f"Invalid action mode: {self._action_mode}")
 
             gripper_action = action[-1]
             gripper_width = np.clip(gripper_action, 0, 0.04)
-            self._frankas[env_idx].set_gripper_width_target(env_idx, ah, gripper_width)
+            self._frankas[env_idx].set_gripper_width_target(env_idx, self._franka_name, gripper_width)
 
     def _compute_obs(self, all_actions):
         all_obs = np.zeros((self.n_envs, 18))
 
         for env_idx in self._scene.env_idxs:
-            ah = self._scene.ah_map[env_idx][self._franka_name]
-
-            all_joints = self._frankas[env_idx].get_joints(env_idx, ah)
+            all_joints = self._frankas[env_idx].get_joints(env_idx, self._franka_name)
             ee_transform = self._frankas[env_idx].get_ee_transform(env_idx, self._franka_name)
-            ee_ct_forces = self._frankas[env_idx].get_ee_ct_forces(env_idx, ah)
+            ee_ct_forces = self._frankas[env_idx].get_ee_ct_forces(env_idx, self._franka_name)
 
             all_obs[env_idx, :7] = all_joints[:7]
             all_obs[env_idx, 7] = all_joints[-1] * 2 # gripper width is 2 * each gripper's prismatic length
@@ -227,22 +222,19 @@ class GymFrankaVecEnv(GymVecEnv):
         if not self._has_first_reset:
             self._init_joints = []
             for env_idx in env_idxs:
-                ah = self._scene.ah_map[env_idx][self._franka_name]
-                self._init_joints.append(self._frankas[env_idx].get_joints(env_idx, ah))
+                self._init_joints.append(self._frankas[env_idx].get_joints(env_idx, self._franka_name))
 
         for env_idx in env_idxs:
-            ah = self._scene.ah_map[env_idx][self._franka_name]
-
-            self._frankas[env_idx].set_joints(env_idx, ah, self._init_joints[env_idx])
-            self._frankas[env_idx].set_joints_targets(env_idx, ah, self._init_joints[env_idx])
+            self._frankas[env_idx].set_joints(env_idx, self._franka_name, self._init_joints[env_idx])
+            self._frankas[env_idx].set_joints_targets(env_idx, self._franka_name, self._init_joints[env_idx])
 
             if self._action_mode == 'joints':
                 if 'randomize_joints' in self._cfg['franka'] and self._cfg['franka']['randomize_joints']:
                     init_random_joints = np.clip(np.random.normal(self._init_joints[env_idx], \
                         (self._frankas[env_idx].joint_limits_upper - self._frankas[env_idx].joint_limits_lower)/10), self._frankas[env_idx].joint_limits_lower, \
                         self._frankas[env_idx].joint_limits_upper)
-                    self._frankas[env_idx].set_joints(env_idx, ah, init_random_joints)            
-                    self._frankas[env_idx].set_joints_targets(env_idx, ah, init_random_joints)
+                    self._frankas[env_idx].set_joints(env_idx, self._franka_name, init_random_joints)            
+                    self._frankas[env_idx].set_joints_targets(env_idx, self._franka_name, init_random_joints)
 
             if self._action_mode == 'vic':
                 self._frankas[env_idx].set_ee_transform(env_idx, env_idx, self._franka_name, 
@@ -253,14 +245,14 @@ class GymFrankaBlockVecEnv(GymFrankaVecEnv):
 
     def _setup_single_env_gen(self, cfg):
         parent_setup = super()._setup_single_env_gen(cfg)
-        self._block = GymBoxAsset(self._scene.gym, self._scene.sim, **cfg['block']['dims'],
+        self._block = GymBoxAsset(self._scene, **cfg['block']['dims'],
                             shape_props=cfg['block']['shape_props'],
                             rb_props=cfg['block']['rb_props'],
                             asset_options=cfg['block']['asset_options']
                             )
         self._banana = GymURDFAsset(
                             cfg['banana']['urdf_path'],
-                            self._scene.gym, self._scene.sim,
+                            self._scene,
                             shape_props=cfg['banana']['shape_props'],
                             rb_props=cfg['banana']['rb_props'],
                             asset_options=cfg['banana']['asset_options']
@@ -277,9 +269,6 @@ class GymFrankaBlockVecEnv(GymFrankaVecEnv):
     def _reset(self, env_idxs):
         super()._reset(env_idxs)
         for env_idx in env_idxs:
-            block_ah = self._scene.ah_map[env_idx][self._block_name]
-            banana_ah = self._scene.ah_map[env_idx][self._banana_name]
-
             block_pose = gymapi.Transform(
                 p=gymapi.Vec3(
                     (np.random.rand() * 2 - 1) * 0.1 + 0.5,
@@ -296,8 +285,8 @@ class GymFrankaBlockVecEnv(GymFrankaVecEnv):
                 r=rpy_to_quat([np.pi/2, np.pi/2, -np.pi/2])
                 )
 
-            self._block.set_rb_transforms(env_idx, block_ah, [block_pose])
-            self._banana.set_rb_transforms(env_idx, banana_ah, [banana_pose])
+            self._block.set_rb_transforms(env_idx, self._block_name, [block_pose])
+            self._banana.set_rb_transforms(env_idx, self._banana_name, [banana_pose])
 
     def _init_obs_space(self, cfg):
         obs_space = super()._init_obs_space(cfg)
@@ -321,9 +310,7 @@ class GymFrankaBlockVecEnv(GymFrankaVecEnv):
         box_pose_obs = np.zeros((self.n_envs, 7))
 
         for env_idx in self._scene.env_idxs:
-            ah = self._scene.ah_map[env_idx][self._block_name]
-
-            block_transform = self._block.get_rb_transforms(env_idx, ah)[0]
+            block_transform = self._block.get_rb_transforms(env_idx, self._block_name)[0]
             box_pose_obs[env_idx, :] = transform_to_np(block_transform, format='wxyz')
 
         all_obs = np.c_[all_obs, box_pose_obs]
