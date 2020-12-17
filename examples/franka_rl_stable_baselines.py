@@ -13,7 +13,7 @@ from stable_baselines3 import PPO
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', '-c', type=str, default='cfg/run_franka_rl_stable_baselines.yaml')
+    parser.add_argument('--cfg', '-c', type=str, default='cfg/franka_rl_stable_baselines.yaml')
     parser.add_argument('--logdir', '-l', type=str, default='outs/tb')
     args = parser.parse_args()
     cfg = YamlConfig(args.cfg)

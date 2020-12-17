@@ -55,32 +55,32 @@ class GymFranka(GymURDFAsset):
         self._attractor_stiffness = cfg['attractor_props']['stiffness']
         self._attractor_damping = cfg['attractor_props']['damping']
 
-    def set_gripper_width_target(self, env_idx, ah, width):
-        joints_targets = self.get_joints_targets(env_idx, ah)
+    def set_gripper_width_target(self, env_idx, name, width):
+        joints_targets = self.get_joints_targets(env_idx, name)
         joints_targets[-2:] = width
-        self.set_joints_targets(env_idx, ah, joints_targets)
+        self.set_joints_targets(env_idx, name, joints_targets)
 
-    def open_grippers(self, env_idx, ah):
-        self.set_gripper_width_target(env_idx, ah, 0.04)
+    def open_grippers(self, env_idx, name):
+        self.set_gripper_width_target(env_idx, name, 0.04)
 
-    def close_grippers(self, env_idx, ah):
-        self.set_gripper_width_target(env_idx, ah, 0)
+    def close_grippers(self, env_idx, name):
+        self.set_gripper_width_target(env_idx, name, 0)
 
-    def set_gripper_width(self, env_idx, ah, width):
+    def set_gripper_width(self, env_idx, name, width):
         width = np.clip(width, self._LOWER_LIMITS[-1], self._UPPER_LIMITS[-1])
-        self.set_gripper_width_target(env_idx, ah, width)
+        self.set_gripper_width_target(env_idx, name, width)
 
-        joints = self.get_joints(env_idx, ah)
+        joints = self.get_joints(env_idx, name)
         joints[-2] = width
-        self.set_joints(env_idx, ah, joints)
+        self.set_joints(env_idx, name, joints)
 
-    def get_gripper_width(self, env_idx, ah):
-        return self.get_joints(env_idx, ah)[-1]
+    def get_gripper_width(self, env_idx, name):
+        return self.get_joints(env_idx, name)[-1]
 
     def get_ee_transform(self, env_idx, name, offset=True):
-        env_ptr = self._gym.get_env(self._sim, env_idx)
-        bh = self._gym.get_rigid_handle(env_ptr, name, 'panda_hand')
-        ee_transform = self._gym.get_rigid_transform(env_ptr, bh) 
+        env_ptr = self._scene.env_ptrs[env_idx]
+        bh = self._scene.gym.get_rigid_handle(env_ptr, name, 'panda_hand')
+        ee_transform = self._scene.gym.get_rigid_transform(env_ptr, bh) 
         if offset:
             ee_transform = ee_transform * self._gripper_offset * self._ee_tool_offset
         return ee_transform
@@ -90,11 +90,11 @@ class GymFranka(GymURDFAsset):
                                                 from_frame='panda_ee', to_frame='panda_link0')
 
     def get_finger_transforms(self, env_idx, name, offset=True):
-        env_ptr = self._gym.get_env(self._sim, env_idx)
-        bh_lf = self._gym.get_rigid_handle(env_ptr, name, 'panda_leftfinger')
-        bh_rf = self._gym.get_rigid_handle(env_ptr, name, 'panda_rightfinger')
-        lf_transform = self._gym.get_rigid_transform(env_ptr, bh_lf)
-        rf_transform = self._gym.get_rigid_transform(env_ptr, bh_rf)
+        env_ptr = self._scene.env_ptrs[env_idx]
+        bh_lf = self._scene.gym.get_rigid_handle(env_ptr, name, 'panda_leftfinger')
+        bh_rf = self._scene.gym.get_rigid_handle(env_ptr, name, 'panda_rightfinger')
+        lf_transform = self._scene.gym.get_rigid_transform(env_ptr, bh_lf)
+        rf_transform = self._scene.gym.get_rigid_transform(env_ptr, bh_rf)
 
         if offset:
             lf_transform = lf_transform * self._finger_offset
@@ -109,31 +109,34 @@ class GymFranka(GymURDFAsset):
         key = self._key(env_idx, name)
         return self._attractor_transforms_map[key]
 
-    def get_left_finger_ct_forces(self, env_idx, ah):
-        all_ct_forces = self._gym.get_rigid_contact_forces(self._sim)
-        env_ptr = self._gym.get_env(self._sim, env_idx)
-        rbi_lf = self._gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map['panda_leftfinger'], gymapi.DOMAIN_SIM)
+    def get_left_finger_ct_forces(self, env_idx, name):
+        all_ct_forces = self._scene.gym.get_rigid_contact_forces(self._scene.sim)
+        env_ptr = self._scene.env_ptrs[env_idx]
+        ah = self._scene.ah_map[env_idx][name]
+        rbi_lf = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map['panda_leftfinger'], gymapi.DOMAIN_SIM)
         ct_forces_lf = np.array([all_ct_forces[rbi_lf][k] for k in 'xyz'])
 
         return ct_forces_lf
 
-    def get_right_finger_ct_forces(self, env_idx, ah):
-        all_ct_forces = self._gym.get_rigid_contact_forces(self._sim)
-        env_ptr = self._gym.get_env(self._sim, env_idx)
-        rbi_rf = self._gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map['panda_rightfinger'], gymapi.DOMAIN_SIM)
+    def get_right_finger_ct_forces(self, env_idx, name):
+        all_ct_forces = self._scene.gym.get_rigid_contact_forces(self._scene.sim)
+        env_ptr = self._scene.env_ptrs[env_idx]
+        ah = self._scene.ah_map[env_idx][name]
+        rbi_rf = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map['panda_rightfinger'], gymapi.DOMAIN_SIM)
         ct_forces_rf = np.array([all_ct_forces[rbi_rf][k] for k in 'xyz'])
 
         return ct_forces_rf
 
-    def get_ee_ct_forces(self, env_idx, ah):
+    def get_ee_ct_forces(self, env_idx, name):
+        ah = self._scene.ah_map[env_idx][name]
         if self._use_custom_ee:
-            all_ct_forces = self._gym.get_rigid_contact_forces(self._sim)
-            env_ptr = self._gym.get_env(self._sim, env_idx)
-            rbi = self._gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._custom_ee_rb_name], gymapi.DOMAIN_SIM)
+            all_ct_forces = self._scene.gym.get_rigid_contact_forces(self._scene.sim)
+            env_ptr = self._scene.env_ptrs[env_idx]
+            rbi = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._custom_ee_rb_name], gymapi.DOMAIN_SIM)
             ct_forces = np.array([all_ct_forces[rbi][k] for k in 'xyz'])
         else:
-            ct_forces_lf = self.get_left_finger_ct_forces(env_idx, ah)
-            ct_forces_rf = self.get_right_finger_ct_forces(env_idx, ah)
+            ct_forces_lf = self.get_left_finger_ct_forces(env_idx, name)
+            ct_forces_rf = self.get_right_finger_ct_forces(env_idx, name)
             ct_forces = (ct_forces_lf + ct_forces_rf) / 2
 
         return ct_forces
@@ -150,11 +153,11 @@ class GymFranka(GymURDFAsset):
     def joint_max_velocities(self):
         return self._VEL_LIMITS
 
-    def set_actuation_mode(self, mode, env_idx, name, ah):
+    def set_actuation_mode(self, mode, env_idx, name):
         self._actuation_mode = mode
-        env_ptr = self._gym.get_env(self._sim, env_idx)
+        env_ptr = self._scene.env_ptrs[env_idx]
         if self._actuation_mode == 'attractors':
-            self.set_dof_props(env_idx, ah, {
+            self.set_dof_props(env_idx, name, {
                 'driveMode': [gymapi.DOF_MODE_NONE] * 7 + [gymapi.DOF_MODE_POS] * 2
             })
 
@@ -165,52 +168,52 @@ class GymFranka(GymURDFAsset):
                 attractor_props.damping= self._attractor_damping
                 attractor_props.axes = gymapi.AXIS_ALL
 
-                gripper_handle = self._gym.get_rigid_handle(env_ptr, name, 'panda_hand')
+                gripper_handle = self._scene.gym.get_rigid_handle(env_ptr, name, 'panda_hand')
                 attractor_props.rigid_handle = gripper_handle
                 attractor_props.offset = self._gripper_offset * self._ee_tool_offset
 
-                attractor_handle = self._gym.create_rigid_body_attractor(env_ptr, attractor_props)
+                attractor_handle = self._scene.gym.create_rigid_body_attractor(env_ptr, attractor_props)
                 self._attractor_handles_map[key] = attractor_handle
 
             gripper_transform = self.get_ee_transform(env_idx, name)
             self.set_ee_transform(env_idx, name, gripper_transform)
         elif self._actuation_mode == 'joints':
-            self.set_dof_props(env_idx, ah, {
+            self.set_dof_props(env_idx, name, {
                 'driveMode': [gymapi.DOF_MODE_POS] * 9
             })
         elif self._actuation_mode == 'torques':
-            self.set_dof_props(env_idx, ah, {
+            self.set_dof_props(env_idx, name, {
                 'driveMode': [gymapi.DOF_MODE_EFFORT] * 7 + [gymapi.DOF_MODE_POS] * 2
             })
         else:
             raise ValueError('Unknown actuation mode! Must be attractors, joints, or torques!')
 
-    def post_create_actor(self, env_idx, name, ah):
-        super().post_create_actor(env_idx, name, ah)
-        self.set_joints(env_idx, ah, self.INIT_JOINTS)
-        self.set_joints_targets(env_idx, ah, self.INIT_JOINTS)
+    def _post_create_actor(self, env_idx, name):
+        super()._post_create_actor(env_idx, name)
+        self.set_joints(env_idx, name, self.INIT_JOINTS)
+        self.set_joints_targets(env_idx, name, self.INIT_JOINTS)
 
         if self._LOWER_LIMITS is None or self._UPPER_LIMITS is None or self._VEL_LIMITS is None:
-            dof_props = self.get_dof_props(env_idx, ah)
+            dof_props = self.get_dof_props(env_idx, name)
             self._LOWER_LIMITS = dof_props['lower']
             self._UPPER_LIMITS = dof_props['upper']
             self._VEL_LIMITS = dof_props['velocity']
 
-        self.set_actuation_mode(self._actuation_mode, env_idx, name, ah)
+        self.set_actuation_mode(self._actuation_mode, env_idx, name)
 
     def set_attractor_props(self, env_idx, name, props):
         if self._actuation_mode != 'attractors':
             raise ValueError('Not using attractors!')
-        env_ptr = self._gym.get_env(self._sim, env_idx)
+        env_ptr = self._scene.env_ptrs[env_idx]
 
         key = self._key(env_idx, name)
         ath = self._attractor_handles_map[key]
-        attractor_props = self._gym.get_attractor_properties(env_ptr, ath)
+        attractor_props = self._scene.gym.get_attractor_properties(env_ptr, ath)
 
         for key, val in props.items():
             setattr(attractor_props, key, val)
         
-        self._gym.set_attractor_properties(env_ptr, ath, attractor_props)
+        self._scene.gym.set_attractor_properties(env_ptr, ath, attractor_props)
 
     def set_ee_transform(self, env_idx, name, transform):
         if self._actuation_mode != 'attractors':
@@ -220,8 +223,8 @@ class GymFranka(GymURDFAsset):
 
         self._attractor_transforms_map[key] = transform
 
-        env_ptr = self._gym.get_env(self._sim, env_idx)
-        self._gym.set_attractor_target(env_ptr, attractor_handle, transform)
+        env_ptr = self._scene.env_ptrs[env_idx]
+        self._scene.gym.set_attractor_target(env_ptr, attractor_handle, transform)
 
     def set_delta_ee_transform(self, env_idx, name, transform):
         ''' This performs delta translation in the global frame and
@@ -234,27 +237,19 @@ class GymFranka(GymURDFAsset):
 
         self.set_ee_transform(env_idx, name, desired_transform)
 
-    def apply_torque(self, env_idx, ah, tau):
+    def apply_torque(self, env_idx, name, tau):
         if len(tau) == 7:
             tau = np.concatenate([tau, np.zeros(2)])
 
-        self.apply_actor_dof_efforts(env_idx, ah, tau)
-
-    def apply_actions(self, env_idx, ah, name, action_type, actions):
-        if action_type == 'ee_targets':
-            self.set_ee_transform(env_idx, env_idx, name, actions)
-        elif action_type == 'delta_ee_targets':
-            self.set_delta_ee_transform(env_idx, env_idx, name, actions)
-        else:
-            super().apply_actions(env_idx, env_idx, ah, name, action_type, actions)
+        self.apply_actor_dof_efforts(env_idx, name, tau)
 
     def get_links_transforms(self, env_idx, name):
         transforms = []
-        env_ptr = self._gym.get_env(self._sim, env_idx)
+        env_ptr = self._scene.env_ptrs[env_idx]
         for i in range(1, 8):
             link_name = 'panda_link{}'.format(i)
-            bh = self._gym.get_rigid_handle(env_ptr, name, link_name)
-            transforms.append(self._gym.get_rigid_transform(env_ptr, bh) )
+            bh = self._scene.gym.get_rigid_handle(env_ptr, name, link_name)
+            transforms.append(self._scene.gym.get_rigid_transform(env_ptr, bh) )
 
         return transforms
 
@@ -275,6 +270,6 @@ class GymFranka(GymURDFAsset):
 
         return J
 
-    def reset_joints(self, env_idx, ah):
-        self.set_joints(env_idx, ah, self.INIT_JOINTS)
+    def reset_joints(self, env_idx, name):
+        self.set_joints(env_idx, name, self.INIT_JOINTS)
     

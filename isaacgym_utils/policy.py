@@ -32,10 +32,8 @@ class RandomDeltaJointPolicy(Policy):
         self._name = name
 
     def __call__(self, scene, env_idx, _, __):
-        ah = scene.ah_map[env_idx][self._name]
-
         delta_joints = (np.random.random(self._franka.n_dofs) * 2 - 1) * ([0.05] * 7 + [0.005] * 2)
-        self._franka.apply_delta_joint_targets(env_idx, ah, delta_joints)
+        self._franka.apply_delta_joint_targets(env_idx, self._name, delta_joints)
 
 
 class GraspBlockPolicy(Policy):
@@ -57,11 +55,8 @@ class GraspBlockPolicy(Policy):
         self._init_ee_transforms = []
 
     def __call__(self, scene, env_idx, t_step, _):
-        ah = scene.ah_map[env_idx][self._franka_name]
-
         if t_step == 20:
-            block_ah = scene.ah_map[env_idx][self._block_name]
-            block_transform = self._block.get_rb_transforms(env_idx, block_ah)[0]
+            block_transform = self._block.get_rb_transforms(env_idx, self._block_name)[0]
             
             ee_transform = self._franka.get_ee_transform(env_idx, self._franka_name)
             self._init_ee_transforms.append(ee_transform)
@@ -79,7 +74,7 @@ class GraspBlockPolicy(Policy):
             self._franka.set_ee_transform(env_idx, self._franka_name, self._grasp_transforms[env_idx])
 
         if t_step == 300:
-            self._franka.close_grippers(env_idx, ah)
+            self._franka.close_grippers(env_idx, self._franka_name)
         
         if t_step == 400:
             self._franka.set_ee_transform(env_idx, self._franka_name, self._pre_grasp_transforms[env_idx])
@@ -88,7 +83,7 @@ class GraspBlockPolicy(Policy):
             self._franka.set_ee_transform(env_idx, self._franka_name, self._grasp_transforms[env_idx])
 
         if t_step == 600:
-            self._franka.open_grippers(env_idx, ah)
+            self._franka.open_grippers(env_idx, self._franka_name)
 
         if t_step == 700:
             self._franka.set_ee_transform(env_idx, self._franka_name, self._pre_grasp_transforms[env_idx])
@@ -115,13 +110,11 @@ class GraspPointPolicy(Policy):
         self._init_ee_transforms = []
 
     def __call__(self, scene, env_idx, t_step, _):
-        ah = scene.ah_map[env_idx][self._franka_name]
-
         t_step = t_step % self._time_horizon
 
         if t_step == 0:
-            self._init_joints = self._franka.get_joints(env_idx, ah)
-            self._init_rbs = self._franka.get_rb_states(env_idx, ah)
+            self._init_joints = self._franka.get_joints(env_idx, self._franka_name)
+            self._init_rbs = self._franka.get_rb_states(env_idx, self._franka_name)
 
         if t_step == 20:
             ee_transform = self._franka.get_ee_transform(env_idx, self._franka_name)
@@ -139,7 +132,7 @@ class GraspPointPolicy(Policy):
             self._franka.set_ee_transform(env_idx, self._franka_name, self._grasp_transforms[env_idx])
 
         if t_step == 150:
-            self._franka.close_grippers(env_idx, ah)
+            self._franka.close_grippers(env_idx, self._franka_name)
         
         if t_step == 250:
             self._franka.set_ee_transform(env_idx, self._franka_name, self._pre_grasp_transforms[env_idx])
@@ -148,7 +141,7 @@ class GraspPointPolicy(Policy):
             self._franka.set_ee_transform(env_idx, self._franka_name, self._grasp_transforms[env_idx])
 
         if t_step == 500:
-            self._franka.open_grippers(env_idx, ah)
+            self._franka.open_grippers(env_idx, self._franka_name)
 
         if t_step == 550:
             self._franka.set_ee_transform(env_idx, self._franka_name, self._pre_grasp_transforms[env_idx])
@@ -157,5 +150,5 @@ class GraspPointPolicy(Policy):
             self._franka.set_ee_transform(env_idx, self._franka_name, self._init_ee_transforms[env_idx])
 
         if t_step == 700:
-            self._franka.set_joints(env_idx, ah, self._init_joints)
-            self._franka.set_rb_states(env_idx, ah, self._init_rbs)
+            self._franka.set_joints(env_idx, self._franka_name, self._init_joints)
+            self._franka.set_rb_states(env_idx, self._franka_name, self._init_rbs)

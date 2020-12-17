@@ -24,7 +24,7 @@ def construct_gym_scene():
         shape_props=cfg['table']['shape_props'],
         asset_options=cfg['table']['asset_options']
     )
-    franka = GymFranka(cfg['franka'], scene.gym, scene.sim, actuation_mode='attractors')
+    franka = GymFranka(cfg['franka'], scene, actuation_mode='attractors')
     block = GymBoxAsset(
         scene.gym,
         scene.sim,
@@ -62,7 +62,7 @@ def run_grasp_block_policy(block_poses):
 
     # set block poses
     for env_idx in scene.env_idxs:
-        block.set_rb_rigid_transforms(env_idx, scene.ah_map[env_idx]['block0'], [block_poses[env_idx]])
+        block.set_rb_rigid_transforms(env_idx, 'block0', [block_poses[env_idx]])
 
     policy.reset()
     scene.run(time_horizon=policy.time_horizon, policy=policy, custom_draws=custom_draws)
@@ -72,7 +72,7 @@ if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        '--cfg', '-c', type=str, default='cfg/run_franka_pick_block_ray.yaml'
+        '--cfg', '-c', type=str, default='cfg/franka_pick_block_ray.yaml'
     )
     args = parser.parse_args()
     cfg = YamlConfig(args.cfg)

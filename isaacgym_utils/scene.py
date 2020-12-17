@@ -157,13 +157,12 @@ class GymScene:
             pose = poses
 
         ah = self._gym.create_actor(env_ptr, asset.GLOBAL_ASSET_CACHE[asset.asset_uid], pose, name, env_idx, collision_filter, self._seg_id)
-        asset.post_create_actor(env_idx, name, ah)
-
-        asset.set_shape_props(env_idx, ah)
-        asset.set_rb_props(env_idx, ah)
-        asset.set_dof_props(env_idx, ah)
-
         self.ah_map[env_idx][name] = ah
+
+        asset._post_create_actor(env_idx, name)
+        asset.set_shape_props(env_idx, name)
+        asset.set_rb_props(env_idx, name)
+        asset.set_dof_props(env_idx, name)
 
         self.seg_id_map[env_idx][name] = self._seg_id
         self._seg_id += 1
@@ -181,19 +180,6 @@ class GymScene:
         for env_idx in self.env_idxs:
             for asset in self._assets[env_idx].values():
                 asset._set_cts_cache(self._all_cts_cache, self._all_cts_loc_cache, self._all_cts_cache_raw, self._all_n_cts_cache)
-
-    def apply_actions(self, name, action_type, actions, envs=None):
-        if envs is None:
-            envs = self.env_idx
-
-        for env_idx in self.env_idxs:
-            ah = self.ah_map[env_idx][name]
-            if len(actions.shape) == 1:
-                self._assets[env_idx][name].apply_actions(env_idx, ah, name, action_type, actions)
-            elif len(actions.shape) == 2:
-                self._assets[env_idx][name].apply_actions(env_idx, ah, name, action_type, actions[env_idx])
-            else:
-                raise ValueError('Invalid actions shape!')
 
     def _propagate_asset_cts(self):
         self._all_cts_cache[:] = 0

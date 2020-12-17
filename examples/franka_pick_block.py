@@ -14,18 +14,18 @@ from isaacgym_utils.draw import draw_transforms, draw_contacts
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', '-c', type=str, default='cfg/run_franka_pick_block.yaml')
+    parser.add_argument('--cfg', '-c', type=str, default='cfg/franka_pick_block.yaml')
     args = parser.parse_args()
     cfg = YamlConfig(args.cfg)
 
     scene = GymScene(cfg['scene'])
 
-    table = GymBoxAsset(scene.gym, scene.sim, **cfg['table']['dims'], 
+    table = GymBoxAsset(scene, **cfg['table']['dims'], 
                         shape_props=cfg['table']['shape_props'], 
                         asset_options=cfg['table']['asset_options']
                         )
-    franka = GymFranka(cfg['franka'], scene.gym, scene.sim, actuation_mode='attractors')
-    block = GymBoxAsset(scene.gym, scene.sim, **cfg['block']['dims'], 
+    franka = GymFranka(cfg['franka'], scene, actuation_mode='attractors')
+    block = GymBoxAsset(scene, **cfg['block']['dims'], 
                         shape_props=cfg['block']['shape_props'], 
                         rb_props=cfg['block']['rb_props'],
                         asset_options=cfg['block']['asset_options']
@@ -36,39 +36,35 @@ if __name__ == "__main__":
     
     table_name, franka_name, block_name = 'table0', 'franka0', 'block0'
 
-    cam = GymCamera(scene.gym, scene.sim, cam_props=cfg['camera'])
+    cam = GymCamera(scene, cam_props=cfg['camera'])
     cam_offset_transform = RigidTransform_to_transform(RigidTransform(
         rotation=RigidTransform.z_axis_rotation(np.deg2rad(90)) @ RigidTransform.x_axis_rotation(np.deg2rad(1)),
         translation=np.array([-0.083270, -0.046490, 0])
     ))
+    cam_name = 'hand_cam0'
     cam_pub = CameraZMQPublisher()
 
     def setup(scene, _):
         scene.add_asset(table_name, table, table_transform)
         scene.add_asset(franka_name, franka, franka_transform, collision_filter=2) # avoid self-collisions
         scene.add_asset(block_name, block, gymapi.Transform()) # we'll sample block poses later
-        scene.attach_camera('hand_cam0', cam, franka_name, 'panda_hand', offset_transform=cam_offset_transform)
+        scene.attach_camera(cam_name, cam, franka_name, 'panda_hand', offset_transform=cam_offset_transform)
     scene.setup_all_envs(setup)    
 
     def custom_draws(scene):
         for env_idx in scene.env_idxs:
             ee_transform = franka.get_ee_transform(env_idx, franka_name)
             desired_ee_transform = franka.get_desired_ee_transform(env_idx, franka_name)
+            cam_transform = cam.get_transform(env_idx, cam_name)
 
-            transforms = [ee_transform, desired_ee_transform]
-
-            if 'hand_cam0' in scene.ch_map[env_idx]:
-                ch = scene.ch_map[env_idx]['hand_cam0']
-                cam_transform = cam.get_transform(ch, env_idx)
-                transforms.append(cam_transform)
-
+            transforms = [ee_transform, desired_ee_transform, cam_transform]
             draw_transforms(scene, [env_idx], transforms)
         draw_contacts(scene, scene.env_idxs)
 
     def cb(scene, _, __):
         env_idx = 0
         scene.render_cameras()
-        color, depth, seg = cam.frames(scene.ch_map[env_idx]['hand_cam0'], 'hand_cam0', env_idx)
+        color, depth, seg = cam.frames(env_idx, cam_name)
         cam_pub.pub(color, depth, seg)
 
     policy = GraspBlockPolicy(franka, franka_name, block, block_name)
@@ -83,7 +79,7 @@ if __name__ == "__main__":
 
         # set block poses
         for env_idx in scene.env_idxs:
-            block.set_rb_transforms(env_idx, scene.ah_map[env_idx][block_name], [block_transforms[env_idx]])
+            block.set_rb_transforms(env_idx, block_name, [block_transforms[env_idx]])
 
         policy.reset()
         scene.run(time_horizon=policy.time_horizon, policy=policy, custom_draws=custom_draws, cb=cb)

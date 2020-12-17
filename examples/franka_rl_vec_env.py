@@ -9,7 +9,7 @@ from isaacgym_utils.draw import draw_transforms
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', '-c', type=str, default='cfg/run_franka_rl_vec_env.yaml')
+    parser.add_argument('--cfg', '-c', type=str, default='cfg/franka_rl_vec_env.yaml')
     args = parser.parse_args()
     cfg = YamlConfig(args.cfg)
 

@@ -14,18 +14,18 @@ from isaacgym_utils.draw import draw_transforms
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', '-c', type=str, default='cfg/run_franka_pick_soft_obj.yaml')
+    parser.add_argument('--cfg', '-c', type=str, default='cfg/franka_pick_soft_obj.yaml')
     args = parser.parse_args()
     cfg = YamlConfig(args.cfg)
 
     scene = GymScene(cfg['scene'])
     
-    table = GymBoxAsset(scene.gym, scene.sim, **cfg['table']['dims'], 
+    table = GymBoxAsset(scene, **cfg['table']['dims'], 
                         shape_props=cfg['table']['shape_props'], 
                         asset_options=cfg['table']['asset_options']
                         )
-    franka = GymFranka(cfg['franka'], scene.gym, scene.sim, actuation_mode='attractors')
-    softgrid = GymTetGridAsset(scene.gym, scene.sim, **cfg['softbody']['dims'], 
+    franka = GymFranka(cfg['franka'], scene, actuation_mode='attractors')
+    softgrid = GymTetGridAsset(scene, **cfg['softbody']['dims'], 
                             soft_material_props=cfg['softbody']['soft_material_props'],
                             asset_options=cfg['softbody']['asset_options'],
                             shape_props=cfg['softbody']['shape_props']
