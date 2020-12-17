@@ -264,6 +264,12 @@ class GymAsset(ABC):
     def get_rb_n_cts(self, env_idx, name):
         return self._all_n_cts_cache[self._sim_rb_idxs_map[env_idx][name]]
 
+    def apply_force(self, env_idx, ah, rb_name, force, loc):
+        env_ptr = self._gym.get_env(self._sim, env_idx)
+        bh = self._gym.get_actor_rigid_body_index(env_ptr, ah, self.rb_names_map[rb_name], gymapi.DOMAIN_ENV)
+
+        self._gym.apply_body_force(env_ptr, bh, force, loc)
+
 
 class GymURDFAsset(GymAsset):
 

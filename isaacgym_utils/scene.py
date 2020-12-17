@@ -178,7 +178,7 @@ class GymScene:
         self._update_assets_cts_caches()        
 
     def _update_assets_cts_caches(self):
-        for env_idx in range(self.n_envs):
+        for env_idx in self.env_idxs:
             for asset in self._assets[env_idx].values():
                 asset._set_cts_cache(self._all_cts_cache, self._all_cts_loc_cache, self._all_cts_cache_raw, self._all_n_cts_cache)
 
@@ -270,8 +270,8 @@ class GymScene:
                 break
 
             if policy is not None:
-                for i in range(self.n_envs):
-                    policy(self, i, t_step, t_sim)
+                for env_idx in self.env_idxs:
+                    policy(self, env_idx, t_step, t_sim)
 
             self.step()
             self.render(custom_draws=custom_draws)
