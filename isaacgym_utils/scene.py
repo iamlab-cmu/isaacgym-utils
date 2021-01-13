@@ -107,6 +107,7 @@ class GymScene:
     def disable_cts(self):
         self._cts = False
 
+    @property
     def is_cts_enabled(self):
         return self._cts
 
