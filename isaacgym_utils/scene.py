@@ -50,6 +50,7 @@ class GymScene:
         self._all_n_cts_cache = None
         self._all_cts_cache_raw = None
         self._all_cts_rb_counts_cache = None
+        self._all_cts_pairs_cache = None
         self._all_cts_cache_raw_max_cts_per_rb = 20 # this will be dynamically resized
 
         # current mutable env
@@ -175,12 +176,14 @@ class GymScene:
         self._all_n_cts_cache = np.zeros(self._n_rbs, dtype='int')
         self._all_cts_cache_raw = np.zeros((self._n_rbs, self._all_cts_cache_raw_max_cts_per_rb, 2, 3))
         self._all_cts_rb_counts_cache = np.zeros(self._n_rbs)
+        self._all_cts_pairs_cache = np.zeros((self._n_rbs, self._n_rbs), dtype='bool')
         self._update_assets_cts_caches()        
 
     def _update_assets_cts_caches(self):
         for env_idx in self.env_idxs:
             for asset in self._assets[env_idx].values():
-                asset._set_cts_cache(self._all_cts_cache, self._all_cts_loc_cache, self._all_cts_cache_raw, self._all_n_cts_cache)
+                asset._set_cts_cache(self._all_cts_cache, self._all_cts_loc_cache, self._all_cts_cache_raw, 
+                                    self._all_n_cts_cache, self._all_cts_pairs_cache)
 
     def _propagate_asset_cts(self):
         self._all_cts_cache[:] = 0
@@ -188,6 +191,7 @@ class GymScene:
         self._all_n_cts_cache[:] = 0
         self._all_cts_cache_raw[:] = 0
         self._all_cts_rb_counts_cache[:] = 0
+        self._all_cts_pairs_cache[:] = 0
 
         all_cts = self._gym.get_rigid_contacts(self._sim)
 
@@ -225,6 +229,11 @@ class GymScene:
             self._all_cts_cache_raw[all_cts['body0'], ct_idxs_0, 1, :] = ct_locs_0
             self._all_cts_cache_raw[all_cts['body1'], ct_idxs_1, 0, :] = -ct_forces
             self._all_cts_cache_raw[all_cts['body1'], ct_idxs_1, 1, :] = ct_locs_1
+
+            non_plane_ct_mask = (all_cts['body0'] != -1) & (all_cts['body1'] != -1)
+            if np.any(non_plane_ct_mask):
+                self._all_cts_pairs_cache[all_cts['body0'][non_plane_ct_mask], all_cts['body1'][non_plane_ct_mask]] = True
+                self._all_cts_pairs_cache[all_cts['body1'][non_plane_ct_mask], all_cts['body0'][non_plane_ct_mask]] = True
 
     def step(self):
         self._gym.simulate(self._sim)

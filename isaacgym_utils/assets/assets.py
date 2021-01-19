@@ -6,6 +6,7 @@ import numpy as np
 from autolab_core import RigidTransform
 
 from isaacgym import gymapi
+from isaacgym import gymtorch
 from isaacgym_utils.math_utils import np_to_vec3, np_to_quat, transform_to_RigidTransform, RigidTransform_to_transform
 
 
@@ -48,11 +49,12 @@ class GymAsset(ABC):
             rb_idx = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, i, gymapi.DOMAIN_SIM)
             self._sim_rb_idxs_map[env_idx][name].append(rb_idx)
 
-    def _set_cts_cache(self, all_cts_cache, all_cts_loc_cache, all_cts_cache_raw, all_n_cts_cache):
+    def _set_cts_cache(self, all_cts_cache, all_cts_loc_cache, all_cts_cache_raw, all_n_cts_cache, all_cts_pairs_cache):
         self._all_cts_cache = all_cts_cache
         self._all_cts_loc_cache = all_cts_loc_cache
         self._all_cts_cache_raw = all_cts_cache_raw
         self._all_n_cts_cache = all_n_cts_cache
+        self._all_cts_pairs_cache = all_cts_pairs_cache
 
     @property
     def asset_uid(self):
@@ -271,6 +273,12 @@ class GymAsset(ABC):
 
     def get_rb_n_cts(self, env_idx, name):
         return self._all_n_cts_cache[self._sim_rb_idxs_map[env_idx][name]]
+
+    def get_rb_in_ct(self, env_idx, source_asset_name, target_asset, target_asset_names, source_rb_idx=0, target_rb_idx=0):
+        source_rb_idx = self._sim_rb_idxs_map[env_idx][source_asset_name][source_rb_idx]
+        target_rb_idxs = [target_asset._sim_rb_idxs_map[env_idx][target_asset_name][target_rb_idx] for target_asset_name in target_asset_names]
+
+        return self._all_cts_pairs_cache[source_rb_idx, target_rb_idxs]
 
     def apply_force(self, env_idx, name, rb_name, force, loc):
         env_ptr = self._scene.env_ptrs[env_idx]
