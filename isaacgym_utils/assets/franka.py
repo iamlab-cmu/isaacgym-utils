@@ -5,7 +5,7 @@ from isaacgym_utils.constants import isaacgym_utils_ASSETS_PATH
 from isaacgym_utils.math_utils import transform_to_RigidTransform, vec3_to_np, quat_to_rot, np_to_vec3
 
 from .assets import GymURDFAsset
-from time import time
+from .franka_numerical_utils import get_franka_mass_matrix
 
 
 class GymFranka(GymURDFAsset):
@@ -276,6 +276,9 @@ class GymFranka(GymURDFAsset):
 
         return J
 
+    def get_mass_matrix(self, env_idx, name):
+        q = self.get_joints(env_idx, name)[:7]
+        return get_franka_mass_matrix(q)
+
     def reset_joints(self, env_idx, name):
         self.set_joints(env_idx, name, self.INIT_JOINTS)
-    

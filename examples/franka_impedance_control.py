@@ -29,13 +29,13 @@ if __name__ == "__main__":
 
     def custom_draws(scene):
         for env_idx in scene.env_idxs:
-            transforms = [franka_transform, franka.get_ee_transform(env_idx, franka_name)] + \
-                        franka.get_links_transforms(env_idx, franka_name)[2:5]
+            transforms = [franka_transform, franka.get_ee_transform(env_idx, franka_name), 
+                        franka.get_links_transforms(env_idx, franka_name)[3]]
             draw_transforms(scene, [env_idx], transforms, length=0.2)
 
     init_ee_transform = franka.get_ee_transform(0, franka_name)
     goal_ee_transform = gymapi.Transform(
-        p=init_ee_transform.p + gymapi.Vec3(0.2, 0, -0.4),
+        p=init_ee_transform.p + gymapi.Vec3(0.2, 0.2, -0.4),
         r=init_ee_transform.r
     )
     policy = EEImpedanceWaypointPolicy(franka_name, init_ee_transform, goal_ee_transform)

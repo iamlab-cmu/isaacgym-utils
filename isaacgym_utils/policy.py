@@ -197,18 +197,27 @@ class EEImpedanceWaypointPolicy(Policy):
         # secondary task - elbow straight
         link_transforms = franka.get_links_transforms(env_idx, self._franka_name)
         elbow_transform = link_transforms[self._elbow_joint]
-        mean_elbow_pos = (link_transforms[self._elbow_joint - 1].p + link_transforms[self._elbow_joint + 1].p)/2
+        mean_elbow_pos = (link_transforms[0].p + link_transforms[-1].p)/2
         elbow_target_transform = gymapi.Transform(
-            p=gymapi.Vec3(mean_elbow_pos.x, mean_elbow_pos.y, elbow_transform.p.z),
+            p=gymapi.Vec3(mean_elbow_pos.x, mean_elbow_pos.y, 2),
             r=elbow_transform.r
         )
 
         J_elb = franka.get_jacobian(env_idx, self._franka_name, target_joint=self._elbow_joint)
+        x_vel_elb = J_elb @ q_dot
 
-        tau_1 = compute_task_space_impedance_control(J_elb, elbow_transform, elbow_target_transform, x_vel, self._Ks_1, self._Ds_1)
+        tau_1 = compute_task_space_impedance_control(J_elb, elbow_transform, elbow_target_transform, x_vel_elb, self._Ks_1, self._Ds_1)
         
         # nullspace projection
-        Null = np.eye(7) - J.T @ (np.linalg.pinv(J)).T
+        M = franka.get_mass_matrix(env_idx, self._franka_name)
+        M_inv = np.linalg.pinv(M)
+
+        # From https://studywolf.wordpress.com/2013/09/17/robot-control-4-operation-space-control/
+        M_ee = np.linalg.pinv(J @ M_inv @ J.T)
+
+        # From https://studywolf.wordpress.com/2013/09/17/robot-control-5-controlling-in-the-null-space/
+        JT_inv = M_ee @ J @ M_inv
+        Null = np.eye(7) - J.T @ (JT_inv)
         tau = tau_0 + Null @ tau_1
 
         franka.apply_torque(env_idx, self._franka_name, tau)
