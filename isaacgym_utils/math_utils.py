@@ -229,15 +229,15 @@ def angle_axis_between_quats(q0, q1):
 
 
 def compute_task_space_impedance_control(J, curr_transform, target_transform, x_vel, Ks, Ds):
-        x_pos = vec3_to_np(curr_transform.p)
-        x_quat = quaternion.from_float_array(quat_to_np(curr_transform.r, format='wxyz'))
+    x_pos = vec3_to_np(curr_transform.p)
+    x_quat = quaternion.from_float_array(quat_to_np(curr_transform.r, format='wxyz'))
 
-        xd_pos = vec3_to_np(target_transform.p)
-        xd_quat = quaternion.from_float_array(quat_to_np(target_transform.r, format='wxyz'))
+    xd_pos = vec3_to_np(target_transform.p)
+    xd_quat = quaternion.from_float_array(quat_to_np(target_transform.r, format='wxyz'))
 
-        xe_pos = x_pos - xd_pos
-        xe_ang_axis = angle_axis_between_quats(x_quat, xd_quat)
+    xe_pos = x_pos - xd_pos
+    xe_ang_axis = angle_axis_between_quats(x_quat, xd_quat)
+    xe = np.concatenate([xe_pos, xe_ang_axis])
 
-        xe = np.concatenate([xe_pos, xe_ang_axis])
-        tau = J.T @ (-Ks @ xe - Ds @ x_vel)
-        return tau
+    tau = J.T @ (-Ks @ xe - Ds @ x_vel)
+    return tau
