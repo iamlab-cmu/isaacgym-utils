@@ -6,7 +6,7 @@ from autolab_core import RigidTransform
 
 from isaacgym import gymapi
 from .math_utils import RigidTransform_to_transform, transform_to_RigidTransform
-from .math_utils import min_jerk, vec3_to_np, quat_to_np, np_to_vec3, compute_task_space_impedance_control
+from .math_utils import min_jerk, vec3_to_np, np_to_vec3, project_to_line, compute_task_space_impedance_control
 
 
 class Policy(ABC):
@@ -197,9 +197,13 @@ class EEImpedanceWaypointPolicy(Policy):
         # secondary task - elbow straight
         link_transforms = franka.get_links_transforms(env_idx, self._franka_name)
         elbow_transform = link_transforms[self._elbow_joint]
-        mean_elbow_pos = (link_transforms[0].p + link_transforms[-1].p)/2
+
+        u0 = vec3_to_np(link_transforms[0].p)[:2]
+        u1 = vec3_to_np(link_transforms[-1].p)[:2]
+        curr_elbow_xy = vec3_to_np(elbow_transform.p)[:2]
+        goal_elbow_xy = project_to_line(curr_elbow_xy, u0, u1)
         elbow_target_transform = gymapi.Transform(
-            p=gymapi.Vec3(mean_elbow_pos.x, mean_elbow_pos.y, 2),
+            p=gymapi.Vec3(goal_elbow_xy[0], goal_elbow_xy[1], 2),
             r=elbow_transform.r
         )
 

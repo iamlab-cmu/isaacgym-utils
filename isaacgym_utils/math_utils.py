@@ -241,3 +241,12 @@ def compute_task_space_impedance_control(J, curr_transform, target_transform, x_
 
     tau = J.T @ (-Ks @ xe - Ds @ x_vel)
     return tau
+
+
+def project_to_line(u, u0, u1):
+    ''' Finds v, the projection of u onto the line crossing u0 and u1
+    '''
+
+    u10 = u1 - u0
+    v = (u - u0) @ u10 / (u10 @ u10) * u10 + u0
+    return v
