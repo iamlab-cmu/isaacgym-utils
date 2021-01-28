@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 import numpy as np
+import quaternion
 
 from autolab_core import RigidTransform
 
 from isaacgym import gymapi
 from .math_utils import RigidTransform_to_transform, transform_to_RigidTransform
+from .math_utils import min_jerk, vec3_to_np, quat_to_np, np_to_vec3, angle_axis_between_quats
 
 
 class Policy(ABC):
@@ -152,3 +154,75 @@ class GraspPointPolicy(Policy):
         if t_step == 700:
             self._franka.set_joints(env_idx, self._franka_name, self._init_joints)
             self._franka.set_rb_states(env_idx, self._franka_name, self._init_rbs)
+
+
+class EEImpedanceWaypointPolicy(Policy):
+
+    def __init__(self, franka_name, init_ee_transform, goal_ee_transform):
+        self._franka_name = franka_name
+        self._Ks_0 = np.diag([500] * 3 + [10] * 3)
+        self._Ds_0 = np.sqrt(self._Ks_0)
+        self._Ks_1 = np.diag([500] * 3 + [10] * 3)
+        self._Ds_1 = np.sqrt(self._Ks_1)
+        self._T = 300
+        self._elbow_joint = 3
+
+        init_ee_pos = vec3_to_np(init_ee_transform.p)
+        goal_ee_pos = vec3_to_np(goal_ee_transform.p)
+        self._traj = [
+            gymapi.Transform(
+                p=np_to_vec3(min_jerk(init_ee_pos, goal_ee_pos, t, self._T)),
+                r=init_ee_transform.r
+            )   
+            for t in range(self._T)
+        ]
+
+    @property
+    def horizon(self):
+        return self._T   
+
+    def _compute_impedance_control(self, J, curr_transform, target_transform, x_vel, Ks, Ds):
+        x_pos = vec3_to_np(curr_transform.p)
+        x_quat = quaternion.from_float_array(quat_to_np(curr_transform.r, format='wxyz'))
+
+        xd_pos = vec3_to_np(target_transform.p)
+        xd_quat = quaternion.from_float_array(quat_to_np(target_transform.r, format='wxyz'))
+
+        xe_pos = x_pos - xd_pos
+        xe_ang_axis = angle_axis_between_quats(x_quat, xd_quat)
+
+        xe = np.concatenate([xe_pos, xe_ang_axis])
+        tau = J.T @ (-Ks @ xe - Ds @ x_vel)
+        return tau
+
+    def __call__(self, scene, env_idx, t_step, t_sim):
+        franka = scene.get_asset(self._franka_name)
+
+        # primary task - ee control
+        ee_transform = franka.get_ee_transform(env_idx, self._franka_name)
+        target_transform = self._traj[min(t_step, self._T - 1)]
+
+        J = franka.get_jacobian(env_idx, self._franka_name)
+        q_dot = franka.get_joints_velocity(env_idx, self._franka_name)[:7]
+        x_vel = J @ q_dot
+
+        tau_0 = self._compute_impedance_control(J, ee_transform, target_transform, x_vel, self._Ks_0, self._Ds_0)
+
+        # secondary task - elbow straight
+        link_transforms = franka.get_links_transforms(env_idx, self._franka_name)
+        elbow_transform = link_transforms[self._elbow_joint]
+        mean_elbow_pos = (link_transforms[self._elbow_joint - 1].p + link_transforms[self._elbow_joint + 1].p)/2
+        elbow_target_transform = gymapi.Transform(
+            p=gymapi.Vec3(mean_elbow_pos.x, mean_elbow_pos.y, elbow_transform.p.z),
+            r=elbow_transform.r
+        )
+
+        J_elb = franka.get_jacobian(env_idx, self._franka_name, target_joint=self._elbow_joint)
+
+        tau_1 = self._compute_impedance_control(J_elb, elbow_transform, elbow_target_transform, x_vel, self._Ks_1, self._Ds_1)
+        
+        # nullspace projection
+        Null = np.eye(7) - J.T @ (np.linalg.pinv(J)).T
+        tau = tau_0 + Null @ tau_1
+
+        franka.apply_torque(env_idx, self._franka_name, tau)

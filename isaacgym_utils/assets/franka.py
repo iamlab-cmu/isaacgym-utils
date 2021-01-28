@@ -260,12 +260,18 @@ class GymFranka(GymURDFAsset):
                                         to_frame='panda_link0') 
                 for i, transform in enumerate(transforms)]
 
-    def get_jacobian(self, env_idx, name):
+    def get_jacobian(self, env_idx, name, target_joint=7):
         transforms = self.get_links_transforms(env_idx, name)
-        ee_pos = vec3_to_np(self.get_ee_transform(env_idx, name).p)
 
-        joints_pos = np.array([vec3_to_np(transform.p) for transform in transforms])
-        axes = np.array([quat_to_rot(transform.r)[:, 2] for transform in transforms])
+        if target_joint == 7:
+            ee_pos = vec3_to_np(self.get_ee_transform(env_idx, name).p)
+        else:
+            ee_pos = vec3_to_np(transforms[target_joint].p)
+
+        joints_pos, axes = np.zeros((7, 3)), np.zeros((7, 3))
+        for i, transform in enumerate(transforms[:target_joint]):
+            joints_pos[i] = vec3_to_np(transform.p)
+            axes[i] = quat_to_rot(transform.r)[:, 2]
         J = np.r_[np.cross(axes, ee_pos - joints_pos).T, axes.T]
 
         return J

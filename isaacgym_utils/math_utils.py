@@ -216,3 +216,13 @@ def sim_to_real_franka_transform(Tsim_frame_to_world, Tsim_base_to_world=None):
     Treal_frame_to_base = change_basis(Tsim_frame_to_base, _R_sim_to_real_franka.T, left=True, right=False)
     Treal_frame_to_world = Treal_frame_to_base.as_frames(Treal_frame_to_base.from_frame, 'world')
     return Treal_frame_to_world
+
+
+def angle_axis_between_quats(q0, q1):
+    '''
+    Finds dq s.t. dq * q1 = q0
+    '''
+    if quaternion.as_float_array(q1) @ quaternion.as_float_array(q0) < 0:
+        q0 = -q0
+    dq = q0 * q1.inverse()
+    return quaternion.as_rotation_vector(dq)
