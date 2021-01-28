@@ -6,7 +6,7 @@ from autolab_core import RigidTransform
 
 from isaacgym import gymapi
 from .math_utils import RigidTransform_to_transform, transform_to_RigidTransform
-from .math_utils import min_jerk, vec3_to_np, quat_to_np, np_to_vec3, angle_axis_between_quats
+from .math_utils import min_jerk, vec3_to_np, quat_to_np, np_to_vec3, compute_task_space_impedance_control
 
 
 class Policy(ABC):
@@ -179,21 +179,7 @@ class EEImpedanceWaypointPolicy(Policy):
 
     @property
     def horizon(self):
-        return self._T   
-
-    def _compute_impedance_control(self, J, curr_transform, target_transform, x_vel, Ks, Ds):
-        x_pos = vec3_to_np(curr_transform.p)
-        x_quat = quaternion.from_float_array(quat_to_np(curr_transform.r, format='wxyz'))
-
-        xd_pos = vec3_to_np(target_transform.p)
-        xd_quat = quaternion.from_float_array(quat_to_np(target_transform.r, format='wxyz'))
-
-        xe_pos = x_pos - xd_pos
-        xe_ang_axis = angle_axis_between_quats(x_quat, xd_quat)
-
-        xe = np.concatenate([xe_pos, xe_ang_axis])
-        tau = J.T @ (-Ks @ xe - Ds @ x_vel)
-        return tau
+        return self._T
 
     def __call__(self, scene, env_idx, t_step, t_sim):
         franka = scene.get_asset(self._franka_name)
@@ -206,7 +192,7 @@ class EEImpedanceWaypointPolicy(Policy):
         q_dot = franka.get_joints_velocity(env_idx, self._franka_name)[:7]
         x_vel = J @ q_dot
 
-        tau_0 = self._compute_impedance_control(J, ee_transform, target_transform, x_vel, self._Ks_0, self._Ds_0)
+        tau_0 = compute_task_space_impedance_control(J, ee_transform, target_transform, x_vel, self._Ks_0, self._Ds_0)
 
         # secondary task - elbow straight
         link_transforms = franka.get_links_transforms(env_idx, self._franka_name)
@@ -219,7 +205,7 @@ class EEImpedanceWaypointPolicy(Policy):
 
         J_elb = franka.get_jacobian(env_idx, self._franka_name, target_joint=self._elbow_joint)
 
-        tau_1 = self._compute_impedance_control(J_elb, elbow_transform, elbow_target_transform, x_vel, self._Ks_1, self._Ds_1)
+        tau_1 = compute_task_space_impedance_control(J_elb, elbow_transform, elbow_target_transform, x_vel, self._Ks_1, self._Ds_1)
         
         # nullspace projection
         Null = np.eye(7) - J.T @ (np.linalg.pinv(J)).T
