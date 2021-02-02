@@ -5,8 +5,8 @@ import quaternion
 from autolab_core import RigidTransform
 
 from isaacgym import gymapi
-from .math_utils import RigidTransform_to_transform, transform_to_RigidTransform
-from .math_utils import min_jerk, vec3_to_np, np_to_vec3, project_to_line, compute_task_space_impedance_control
+from .math_utils import min_jerk, slerp_quat, vec3_to_np, np_to_vec3, RigidTransform_to_transform, \
+                    transform_to_RigidTransform, project_to_line, compute_task_space_impedance_control
 
 
 class Policy(ABC):
@@ -158,13 +158,13 @@ class GraspPointPolicy(Policy):
 
 class EEImpedanceWaypointPolicy(Policy):
 
-    def __init__(self, franka_name, init_ee_transform, goal_ee_transform):
+    def __init__(self, franka_name, init_ee_transform, goal_ee_transform, T=300):
         self._franka_name = franka_name
-        self._Ks_0 = np.diag([500] * 3 + [10] * 3)
+        self._Ks_0 = np.diag([500] * 3 + [20] * 3)
         self._Ds_0 = np.sqrt(self._Ks_0)
-        self._Ks_1 = np.diag([500] * 3 + [10] * 3)
+        self._Ks_1 = np.diag([500] * 3 + [20] * 3)
         self._Ds_1 = np.sqrt(self._Ks_1)
-        self._T = 300
+        self._T = T
         self._elbow_joint = 3
 
         init_ee_pos = vec3_to_np(init_ee_transform.p)
@@ -172,8 +172,8 @@ class EEImpedanceWaypointPolicy(Policy):
         self._traj = [
             gymapi.Transform(
                 p=np_to_vec3(min_jerk(init_ee_pos, goal_ee_pos, t, self._T)),
-                r=init_ee_transform.r
-            )   
+                r=slerp_quat(init_ee_transform.r, goal_ee_transform.r, t, self._T),
+            )
             for t in range(self._T)
         ]
 

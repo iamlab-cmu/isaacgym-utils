@@ -127,8 +127,8 @@ def min_jerk_delta(xi, xf, t, T, dt):
     return (xf - xi) * (30 * r ** 2 - 60 * r ** 3 + 30 * r ** 4) * dt
 
 
-def slerp_quat(q0, q1, t):
-    t = max(min(t, 1), 0)
+def slerp_quat(q0, q1, t, T=1):
+    t = max(min(t/T, 1), 0)
 
     qt = quaternion.slerp(
         quaternion.from_float_array(quat_to_np(q0, format='wxyz')), 
