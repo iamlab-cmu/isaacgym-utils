@@ -196,7 +196,13 @@ class GymScene:
         all_cts = self._gym.get_rigid_contacts(self._sim)
 
         # filter out invalid cts
-        all_cts = all_cts[all_cts['env0'] != -1 & np.logical_not(np.isclose(all_cts['lambda'], 0))]
+        eps = 1e-5
+        invalid_mask = all_cts['env0'] == -1 & \
+            np.isclose(all_cts['lambda'], 0, atol=eps) & \
+            np.isclose(all_cts['normal']['x'], 0, atol=eps) & \
+            np.isclose(all_cts['normal']['y'], 0, atol=eps) & \
+            np.isclose(all_cts['normal']['z'], 0, atol=eps)
+        all_cts = all_cts[np.logical_not(invalid_mask)]
         if len(all_cts) > 0:
             ct_mags = all_cts['lambda'][:, None]
             ct_dirs = np.c_[all_cts['normal']['x'], all_cts['normal']['y'], all_cts['normal']['z']]
