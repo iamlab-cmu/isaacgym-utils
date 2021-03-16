@@ -24,7 +24,7 @@ if __name__ == "__main__":
                         shape_props=cfg['table']['shape_props'], 
                         asset_options=cfg['table']['asset_options']
                         )
-    franka = GymFranka(cfg['franka'], scene, actuation_mode='attractors')
+    franka = GymFranka(cfg['franka'], scene, actuation_mode='torques')
     block = GymBoxAsset(scene, **cfg['block']['dims'], 
                         shape_props=cfg['block']['shape_props'], 
                         rb_props=cfg['block']['rb_props'],
@@ -54,10 +54,10 @@ if __name__ == "__main__":
     def custom_draws(scene):
         for env_idx in scene.env_idxs:
             ee_transform = franka.get_ee_transform(env_idx, franka_name)
-            desired_ee_transform = franka.get_desired_ee_transform(env_idx, franka_name)
+            # desired_ee_transform = franka.get_desired_ee_transform(env_idx, franka_name)
             cam_transform = cam.get_transform(env_idx, cam_name)
 
-            transforms = [ee_transform, desired_ee_transform, cam_transform]
+            transforms = [ee_transform, cam_transform]
             draw_transforms(scene, [env_idx], transforms)
         draw_contacts(scene, scene.env_idxs)
 

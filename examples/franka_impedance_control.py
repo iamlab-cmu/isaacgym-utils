@@ -1,7 +1,5 @@
 import argparse
 
-import numpy as np
-import quaternion
 from autolab_core import YamlConfig
 
 from isaacgym import gymapi
@@ -9,7 +7,6 @@ from isaacgym_utils.scene import GymScene
 from isaacgym_utils.assets import GymFranka
 from isaacgym_utils.policy import EEImpedanceWaypointPolicy
 from isaacgym_utils.draw import draw_transforms
-from isaacgym_utils.math_utils import min_jerk, vec3_to_np, quat_to_np, angle_axis_between_quats
 
 
 if __name__ == "__main__":
@@ -38,6 +35,6 @@ if __name__ == "__main__":
         p=init_ee_transform.p + gymapi.Vec3(0.2, 0.2, -0.4),
         r=init_ee_transform.r
     )
-    policy = EEImpedanceWaypointPolicy(franka_name, init_ee_transform, goal_ee_transform)
+    policy = EEImpedanceWaypointPolicy(franka, franka_name, init_ee_transform, goal_ee_transform)
 
     scene.run(policy=policy, custom_draws=custom_draws)

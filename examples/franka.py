@@ -1,6 +1,5 @@
 import argparse
 
-import numpy as np
 from autolab_core import YamlConfig
 
 from isaacgym import gymapi

@@ -9,7 +9,6 @@ from autolab_core import RigidTransform, YamlConfig
 from isaacgym import gymapi
 from isaacgym_utils.assets import GymBoxAsset, GymFranka
 from isaacgym_utils.draw import draw_transforms
-from isaacgym_utils.math_utils import RigidTransform_to_transform
 from isaacgym_utils.policy import GraspBlockPolicy
 from isaacgym_utils.scene import GymScene
 

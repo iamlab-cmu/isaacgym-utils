@@ -1,13 +1,10 @@
 import argparse
 
-import numpy as np
-import matplotlib.pyplot as plt
-from autolab_core import YamlConfig, RigidTransform
+from autolab_core import YamlConfig
 
 from isaacgym import gymapi
 from isaacgym_utils.scene import GymScene
 from isaacgym_utils.assets import GymFranka, GymBoxAsset, GymTetGridAsset
-from isaacgym_utils.math_utils import RigidTransform_to_transform
 from isaacgym_utils.policy import GraspPointPolicy
 from isaacgym_utils.draw import draw_transforms
 

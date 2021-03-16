@@ -1,12 +1,9 @@
 from abc import ABC, abstractmethod
 import numpy as np
-import quaternion
-
-from autolab_core import RigidTransform
 
 from isaacgym import gymapi
-from .math_utils import min_jerk, slerp_quat, vec3_to_np, np_to_vec3, RigidTransform_to_transform, \
-                    transform_to_RigidTransform, project_to_line, compute_task_space_impedance_control
+from .math_utils import min_jerk, slerp_quat, vec3_to_np, np_to_vec3, \
+                    project_to_line, compute_task_space_impedance_control
 
 
 class Policy(ABC):
@@ -55,43 +52,67 @@ class GraspBlockPolicy(Policy):
         self._pre_grasp_transforms = []
         self._grasp_transforms = []
         self._init_ee_transforms = []
+        self._ee_waypoint_policies = []
 
-    def __call__(self, scene, env_idx, t_step, _):
+    def __call__(self, scene, env_idx, t_step, t_sim):
+        ee_transform = self._franka.get_ee_transform(env_idx, self._franka_name)
+
+        if t_step == 0:
+            self._init_ee_transforms.append(ee_transform)
+            self._ee_waypoint_policies.append(
+                EEImpedanceWaypointPolicy(self._franka, self._franka_name, ee_transform, ee_transform, T=20)
+            )
+
         if t_step == 20:
             block_transform = self._block.get_rb_transforms(env_idx, self._block_name)[0]
-            
-            ee_transform = self._franka.get_ee_transform(env_idx, self._franka_name)
-            self._init_ee_transforms.append(ee_transform)
-
-            grasp_transform = gymapi.Transform(p=block_transform.p, r=ee_transform.r)
-            pre_grasp_transfrom = gymapi.Transform(p=grasp_transform.p, r=grasp_transform.r)
-            pre_grasp_transfrom.p.z += 0.2
+            grasp_transform = gymapi.Transform(p=block_transform.p, r=self._init_ee_transforms[env_idx].r)
+            pre_grasp_transfrom = gymapi.Transform(p=grasp_transform.p + gymapi.Vec3(0, 0, 0.2), r=grasp_transform.r)
 
             self._grasp_transforms.append(grasp_transform)
             self._pre_grasp_transforms.append(pre_grasp_transfrom)
 
-            self._franka.set_ee_transform(env_idx, self._franka_name, self._pre_grasp_transforms[env_idx])
+            self._ee_waypoint_policies[env_idx] = \
+                EEImpedanceWaypointPolicy(
+                    self._franka, self._franka_name, ee_transform, self._pre_grasp_transforms[env_idx], T=180
+                )
 
         if t_step == 200:
-            self._franka.set_ee_transform(env_idx, self._franka_name, self._grasp_transforms[env_idx])
+            self._ee_waypoint_policies[env_idx] = \
+                EEImpedanceWaypointPolicy(
+                    self._franka, self._franka_name, self._pre_grasp_transforms[env_idx], self._grasp_transforms[env_idx], T=100
+                )
 
         if t_step == 300:
             self._franka.close_grippers(env_idx, self._franka_name)
         
         if t_step == 400:
-            self._franka.set_ee_transform(env_idx, self._franka_name, self._pre_grasp_transforms[env_idx])
+            self._ee_waypoint_policies[env_idx] = \
+                EEImpedanceWaypointPolicy(
+                    self._franka, self._franka_name, self._grasp_transforms[env_idx], self._pre_grasp_transforms[env_idx], T=100
+                )
 
         if t_step == 500:
-            self._franka.set_ee_transform(env_idx, self._franka_name, self._grasp_transforms[env_idx])
+            self._ee_waypoint_policies[env_idx] = \
+                EEImpedanceWaypointPolicy(
+                    self._franka, self._franka_name, self._pre_grasp_transforms[env_idx], self._grasp_transforms[env_idx], T=100
+                )
 
         if t_step == 600:
             self._franka.open_grippers(env_idx, self._franka_name)
 
         if t_step == 700:
-            self._franka.set_ee_transform(env_idx, self._franka_name, self._pre_grasp_transforms[env_idx])
+            self._ee_waypoint_policies[env_idx] = \
+                EEImpedanceWaypointPolicy(
+                    self._franka, self._franka_name, self._grasp_transforms[env_idx], self._pre_grasp_transforms[env_idx], T=100
+                )
 
         if t_step == 800:
-            self._franka.set_ee_transform(env_idx, self._franka_name, self._init_ee_transforms[env_idx])
+            self._ee_waypoint_policies[env_idx] = \
+                EEImpedanceWaypointPolicy(
+                    self._franka, self._franka_name, self._pre_grasp_transforms[env_idx], self._init_ee_transforms[env_idx], T=100
+                )
+
+        self._ee_waypoint_policies[env_idx](scene, env_idx, t_step, t_sim)
 
 
 class GraspPointPolicy(Policy):
@@ -156,16 +177,64 @@ class GraspPointPolicy(Policy):
             self._franka.set_rb_states(env_idx, self._franka_name, self._init_rbs)
 
 
+class FrankaEEImpedanceController:
+
+    def __init__(self, franka, franka_name):
+        self._franka = franka
+        self._franka_name = franka_name
+        self._elbow_joint = 3
+
+        Kp_0, Kr_0 = 200, 5
+        Kp_1, Kr_1 = 200, 5
+        self._Ks_0 = np.diag([Kp_0] * 3 + [Kr_0] * 3)
+        self._Ds_0 = np.diag([4 * np.sqrt(Kp_0)] * 3 + [2 * np.sqrt(Kr_0)] * 3)
+        self._Ks_1 = np.diag([Kp_1] * 3 + [Kr_1] * 3)
+        self._Ds_1 = np.diag([4 * np.sqrt(Kp_1)] * 3 + [2 * np.sqrt(Kr_1)] * 3)
+
+    def compute_tau(self, env_idx, target_transform):
+        # primary task - ee control
+        ee_transform = self._franka.get_ee_transform(env_idx, self._franka_name)
+
+        J = self._franka.get_jacobian(env_idx, self._franka_name)
+        q_dot = self._franka.get_joints_velocity(env_idx, self._franka_name)[:7]
+        x_vel = J @ q_dot
+
+        tau_0 = compute_task_space_impedance_control(J, ee_transform, target_transform, x_vel, self._Ks_0, self._Ds_0)
+
+        # secondary task - elbow straight
+        link_transforms = self._franka.get_links_transforms(env_idx, self._franka_name)
+        elbow_transform = link_transforms[self._elbow_joint]
+
+        u0 = vec3_to_np(link_transforms[0].p)[:2]
+        u1 = vec3_to_np(link_transforms[-1].p)[:2]
+        curr_elbow_xyz = vec3_to_np(elbow_transform.p)
+        goal_elbow_xy = project_to_line(curr_elbow_xyz[:2], u0, u1)
+        elbow_target_transform = gymapi.Transform(
+            p=gymapi.Vec3(goal_elbow_xy[0], goal_elbow_xy[1], curr_elbow_xyz[2] + 0.2),
+            r=elbow_transform.r
+        )
+
+        J_elb = self._franka.get_jacobian(env_idx, self._franka_name, target_joint=self._elbow_joint)
+        x_vel_elb = J_elb @ q_dot
+
+        tau_1 = compute_task_space_impedance_control(J_elb, elbow_transform, elbow_target_transform, x_vel_elb, self._Ks_1, self._Ds_1)
+        
+        # nullspace projection
+        JT_inv = np.linalg.pinv(J.T)
+        Null = np.eye(7) - J.T @ (JT_inv)
+        tau = tau_0 + Null @ tau_1
+
+        return tau
+
+
 class EEImpedanceWaypointPolicy(Policy):
 
-    def __init__(self, franka_name, init_ee_transform, goal_ee_transform, T=300):
+    def __init__(self, franka, franka_name, init_ee_transform, goal_ee_transform, T=300):
+        self._franka = franka
         self._franka_name = franka_name
-        self._Ks_0 = np.diag([500] * 3 + [20] * 3)
-        self._Ds_0 = np.sqrt(self._Ks_0)
-        self._Ks_1 = np.diag([500] * 3 + [20] * 3)
-        self._Ds_1 = np.sqrt(self._Ks_1)
+
         self._T = T
-        self._elbow_joint = 3
+        self._ee_impedance_ctrlr = FrankaEEImpedanceController(franka, franka_name)
 
         init_ee_pos = vec3_to_np(init_ee_transform.p)
         goal_ee_pos = vec3_to_np(goal_ee_transform.p)
@@ -182,46 +251,6 @@ class EEImpedanceWaypointPolicy(Policy):
         return self._T
 
     def __call__(self, scene, env_idx, t_step, t_sim):
-        franka = scene.get_asset(self._franka_name)
-
-        # primary task - ee control
-        ee_transform = franka.get_ee_transform(env_idx, self._franka_name)
         target_transform = self._traj[min(t_step, self._T - 1)]
-
-        J = franka.get_jacobian(env_idx, self._franka_name)
-        q_dot = franka.get_joints_velocity(env_idx, self._franka_name)[:7]
-        x_vel = J @ q_dot
-
-        tau_0 = compute_task_space_impedance_control(J, ee_transform, target_transform, x_vel, self._Ks_0, self._Ds_0)
-
-        # secondary task - elbow straight
-        link_transforms = franka.get_links_transforms(env_idx, self._franka_name)
-        elbow_transform = link_transforms[self._elbow_joint]
-
-        u0 = vec3_to_np(link_transforms[0].p)[:2]
-        u1 = vec3_to_np(link_transforms[-1].p)[:2]
-        curr_elbow_xy = vec3_to_np(elbow_transform.p)[:2]
-        goal_elbow_xy = project_to_line(curr_elbow_xy, u0, u1)
-        elbow_target_transform = gymapi.Transform(
-            p=gymapi.Vec3(goal_elbow_xy[0], goal_elbow_xy[1], 2),
-            r=elbow_transform.r
-        )
-
-        J_elb = franka.get_jacobian(env_idx, self._franka_name, target_joint=self._elbow_joint)
-        x_vel_elb = J_elb @ q_dot
-
-        tau_1 = compute_task_space_impedance_control(J_elb, elbow_transform, elbow_target_transform, x_vel_elb, self._Ks_1, self._Ds_1)
-        
-        # nullspace projection
-        M = franka.get_mass_matrix(env_idx, self._franka_name)
-        M_inv = np.linalg.pinv(M)
-
-        # From https://studywolf.wordpress.com/2013/09/17/robot-control-4-operation-space-control/
-        M_ee = np.linalg.pinv(J @ M_inv @ J.T)
-
-        # From https://studywolf.wordpress.com/2013/09/17/robot-control-5-controlling-in-the-null-space/
-        JT_inv = M_ee @ J @ M_inv
-        Null = np.eye(7) - J.T @ (JT_inv)
-        tau = tau_0 + Null @ tau_1
-
-        franka.apply_torque(env_idx, self._franka_name, tau)
+        tau = self._ee_impedance_ctrlr.compute_tau(env_idx, target_transform)
+        self._franka.apply_torque(env_idx, self._franka_name, tau)
