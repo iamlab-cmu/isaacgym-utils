@@ -184,7 +184,7 @@ class FrankaEEImpedanceController:
         self._franka_name = franka_name
         self._elbow_joint = 3
 
-        Kp_0, Kr_0 = 200, 5
+        Kp_0, Kr_0 = 200, 8
         Kp_1, Kr_1 = 200, 5
         self._Ks_0 = np.diag([Kp_0] * 3 + [Kr_0] * 3)
         self._Ds_0 = np.diag([4 * np.sqrt(Kp_0)] * 3 + [2 * np.sqrt(Kr_0)] * 3)
