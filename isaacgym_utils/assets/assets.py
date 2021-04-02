@@ -103,57 +103,64 @@ class GymAsset(ABC):
         ah = self._scene.ah_map[env_idx][name]
         return self._scene.gym.get_actor_rigid_body_properties(env_ptr, ah)
 
-    def set_rb_props(self, env_idx, name, rb_props=None, rb_idx=0):
+    def set_rb_props(self, env_idx, name, rb_props=None):
         if rb_props is None:
             rb_props = self._rb_props
         if rb_props:
             gym_rb_props = self.get_rb_props(env_idx, name)
             modified_rb_props = False
 
-            if 'mass' in rb_props:
-                mass = rb_props['mass']        
-                ratio = mass / gym_rb_props[rb_idx].mass
-                gym_rb_props[rb_idx].mass = mass
-                gym_rb_props[rb_idx].inertia.x.x *= ratio
-                gym_rb_props[rb_idx].inertia.y.y *= ratio
-                gym_rb_props[rb_idx].inertia.z.z *= ratio
-                if mass > 0:
-                    gym_rb_props[rb_idx].invMass = 1. / mass
-                    gym_rb_props[rb_idx].invInertia.x.x *= 1. / ratio
-                    gym_rb_props[rb_idx].invInertia.y.y *= 1. / ratio
-                    gym_rb_props[rb_idx].invInertia.z.z *= 1. / ratio
-                modified_rb_props = True
-            if 'com' in rb_props:
-                com = rb_props['com']
-                gym_rb_props[rb_idx].com = com
-                modified_rb_props = True
-            if 'flags' in rb_props:
-                if rb_props['flags'] == 'none':
-                    gym_rb_props[rb_idx].flags = gymapi.RIGID_BODY_NONE
-                elif rb_props['flags'] == 'no_sim':
-                    gym_rb_props[rb_idx].flags = gymapi.RIGID_BODY_DISABLE_SIMULATION
-                elif rb_props['flags'] == 'no_gravity':
-                    gym_rb_props[rb_idx].flags = gymapi.RIGID_BODY_DISABLE_GRAVITY
-                modified_rb_props = True
+            if isinstance(rb_props, list):
+                if len(rb_props) != len(gym_rb_props):
+                    raise ValueError('Length of rb props lists must equal {}'.format(len(gym_rb_props)))
+            else:
+                rb_props = [rb_props] * len(gym_rb_props)
 
             env_ptr = self._scene.env_ptrs[env_idx]
             ah = self._scene.ah_map[env_idx][name]
 
+            for rb_idx, gym_rb_prop in enumerate(gym_rb_props):
+                if 'mass' in rb_props[rb_idx]:
+                    mass = rb_props[rb_idx]['mass']        
+                    ratio = mass / gym_rb_prop.mass
+                    gym_rb_prop.mass = mass
+                    gym_rb_prop.inertia.x.x *= ratio
+                    gym_rb_prop.inertia.y.y *= ratio
+                    gym_rb_prop.inertia.z.z *= ratio
+                    if mass > 0:
+                        gym_rb_prop.invMass = 1. / mass
+                        gym_rb_prop.invInertia.x.x *= 1. / ratio
+                        gym_rb_prop.invInertia.y.y *= 1. / ratio
+                        gym_rb_prop.invInertia.z.z *= 1. / ratio
+                    modified_rb_props = True
+                if 'com' in rb_props[rb_idx]:
+                    com = rb_props[rb_idx]['com']
+                    gym_rb_prop.com = com
+                    modified_rb_props = True
+                if 'flags' in rb_props[rb_idx]:
+                    if rb_props[rb_idx]['flags'] == 'none':
+                        gym_rb_prop.flags = gymapi.RIGID_BODY_NONE
+                    elif rb_props[rb_idx]['flags'] == 'no_sim':
+                        gym_rb_prop.flags = gymapi.RIGID_BODY_DISABLE_SIMULATION
+                    elif rb_props[rb_idx]['flags'] == 'no_gravity':
+                        gym_rb_prop.flags = gymapi.RIGID_BODY_DISABLE_GRAVITY
+                    modified_rb_props = True
+
+                if 'color' in rb_props[rb_idx]:
+                    color = rb_props[rb_idx]['color']
+                    self._scene.gym.set_rigid_body_color(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, np_to_vec3(color))
+
+                if 'texture' in rb_props[rb_idx]:
+                    # this is needed for the textures to work for some reason...
+                    self._scene.gym.set_rigid_body_color(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, np_to_vec3([1, 1, 1]))
+                    # create and set texture
+                    if rb_props[rb_idx]['texture'] not in self.GLOBAL_TEXTURES_CACHE:
+                        self.GLOBAL_TEXTURES_CACHE[rb_props[rb_idx]['texture']] = self._scene.gym.create_texture_from_file(self._scene.sim, str(self._assets_root / rb_props[rb_idx]['texture']))
+                    th = self.GLOBAL_TEXTURES_CACHE[rb_props[rb_idx]['texture']]
+                    self._scene.gym.set_rigid_body_texture(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, th)
+
             if modified_rb_props:
                 self._scene.gym.set_actor_rigid_body_properties(env_ptr, ah, gym_rb_props)
-
-            if 'color' in rb_props:
-                color = rb_props['color']
-                self._scene.gym.set_rigid_body_color(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, np_to_vec3(color))
-
-            if 'texture' in rb_props:
-                # this is needed for the textures to work for some reason...
-                self._scene.gym.set_rigid_body_color(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, np_to_vec3([1, 1, 1]))
-                # create and set texture
-                if rb_props['texture'] not in self.GLOBAL_TEXTURES_CACHE:
-                    self.GLOBAL_TEXTURES_CACHE[rb_props['texture']] = self._scene.gym.create_texture_from_file(self._scene.sim, str(self._assets_root / rb_props['texture']))
-                th = self.GLOBAL_TEXTURES_CACHE[rb_props['texture']]
-                self._scene.gym.set_rigid_body_texture(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, th)
 
     def get_dof_props(self, env_idx, name):
         env_ptr = self._scene.env_ptrs[env_idx]
