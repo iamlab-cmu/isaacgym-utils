@@ -135,7 +135,7 @@ class GymAsset(ABC):
                     modified_rb_props = True
                 if 'com' in rb_props[rb_idx]:
                     com = rb_props[rb_idx]['com']
-                    gym_rb_prop.com = com
+                    gym_rb_prop.com = np_to_vec3(com)
                     modified_rb_props = True
                 if 'flags' in rb_props[rb_idx]:
                     if rb_props[rb_idx]['flags'] == 'none':
