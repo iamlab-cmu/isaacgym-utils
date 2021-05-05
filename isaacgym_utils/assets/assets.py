@@ -91,8 +91,11 @@ class GymAsset(ABC):
                 shape_props = [shape_props] * len(gym_shape_props)
 
             for i, gym_shape_prop in enumerate(gym_shape_props):
-                for key, val in shape_props[i].items():
-                    setattr(gym_shape_prop, key, val)
+                if isinstance(shape_props[i], gym_shape_prop.__class__):
+                    gym_shape_props[i] = shape_props[i]
+                else:
+                    for key, val in shape_props[i].items():
+                        setattr(gym_shape_prop, key, val)
                 
             env_ptr = self._scene.env_ptrs[env_idx]
             ah = self._scene.ah_map[env_idx][name]
