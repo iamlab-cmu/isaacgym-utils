@@ -105,8 +105,31 @@ def np_to_quat(ary, format='xyzw'):
         raise ValueError('Unknown quat format! Must be xyzw or wxyz!')
 
 
+@jit(nopython=True)
+def rot_to_np_quat(R):
+    # From https://d3cw3dd2w32x2b.cloudfront.net/wp-content/uploads/2015/01/matrix-to-quat.pdf
+    q = np.zeros(4, dtype=np.float64)
+    if R[2, 2] < 0:
+        if R[0, 0] > R[1, 1]:
+            t = 1 + R[0, 0] - R[1, 1] - R[2, 2]
+            q[:] = [R[1, 2] - R[2, 1], t, R[0, 1] + R[1, 0], R[2, 0] + R[0, 2]]
+        else:
+            t = 1 - R[0, 0] + R[1, 1] - R[2, 2]
+            q[:] = [R[2, 0] - R[0, 2], R[0, 1] + R[1, 0], t, R[1, 2] + R[2, 1]]
+    else:
+        if R[0, 0] < -R[1, 1]:
+            t = 1 - R[0, 0] - R[1, 1] + R[2, 2]
+            q[:] = [R[0, 1] - R[1, 0], R[2, 0] + R[0, 2], R[1, 2] + R[2, 1], t]
+        else:
+            t = 1 + R[0, 0] + R[1, 1] + R[2, 2]
+            q[:] = [t, R[1, 2] - R[2, 1], R[2, 0] - R[0, 2], R[0, 1] - R[1, 0]]
+    
+    q *= 0.5 / np.sqrt(t)
+    return q
+
+
 def rot_to_quat(R):
-    return np_to_quat(quaternion.as_float_array(quaternion.from_rotation_matrix(R)), format='wxyz')
+    return np_to_quat(rot_to_np_quat(R), format='wxyz')
 
 
 def np_quat_to_quat(q):
@@ -176,9 +199,14 @@ def angle_axis_between_axes(v0, v1):
         return np.zeros(3)
     
     axis = v / norm_v
-    angle = np.arccos(np.clip(v0 @ v1, -1, 1))
+    angle = angle_between_axes(v0, v1)
 
     return angle * axis
+
+
+@jit(nopython=True)
+def angle_between_axes(v0, v1):
+    return np.arccos(max(min(v0 @ v1, 1), -1))
 
 
 def rotation_to_angle_axis(R):
