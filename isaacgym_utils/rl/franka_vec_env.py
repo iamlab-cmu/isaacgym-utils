@@ -237,8 +237,9 @@ class GymFrankaVecEnv(GymVecEnv):
                     self._frankas[env_idx].set_joints_targets(env_idx, self._franka_name, init_random_joints)
 
             if self._action_mode == 'vic':
-                self._frankas[env_idx].set_ee_transform(env_idx, env_idx, self._franka_name, 
-                                            self._init_ee_transforms[env_idx])
+                self._frankas[env_idx].set_ee_transform(
+                    env_idx, self._franka_name, self._init_ee_transforms[env_idx]
+                )
 
 
 class GymFrankaBlockVecEnv(GymFrankaVecEnv):
