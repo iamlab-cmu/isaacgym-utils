@@ -1,4 +1,5 @@
 import numpy as np
+from pathlib import Path
 
 from isaacgym import gymapi
 from isaacgym_utils.constants import isaacgym_utils_ASSETS_PATH
@@ -25,7 +26,7 @@ class GymFranka(GymURDFAsset):
     def __init__(self, cfg, *args, actuation_mode='joints'):
         if 'urdf' in cfg:
             urdf_path = cfg['urdf']
-            assets_root = cfg['assets_root']
+            assets_root = Path(cfg['assets_root'])
         else:
             urdf_path = GymFranka._URDF_PATH_WITH_DYNAMICS
             assets_root = isaacgym_utils_ASSETS_PATH
