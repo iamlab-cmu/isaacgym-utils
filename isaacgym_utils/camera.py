@@ -39,12 +39,18 @@ class GymCamera:
     def fov(self):
         return np.deg2rad(self.gym_cam_props.horizontal_fov)
 
+    @staticmethod
+    def optical_from_gym_transform(transform):
+        # re-orients the camera in an "optical" convention
+        # given the transform provided by isaac gym
+        # +z forward, +x right, +y down
+        transform.r = transform.r * quat_gym_to_real_cam
+        return transform
+
     def get_transform(self, env_idx, name):
         env_ptr = self._scene.env_ptrs[env_idx]
         ch = self._scene.ch_map[env_idx][name]
-        transform = self._scene.gym.get_camera_transform(self._scene.sim, env_ptr, ch)
-
-        transform.r = transform.r * quat_gym_to_real_cam
+        transform = self.optical_from_gym_transform(self._scene.gym.get_camera_transform(self._scene.sim, env_ptr, ch))
         return transform
 
     def get_extrinsics(self, env_idx, name):
