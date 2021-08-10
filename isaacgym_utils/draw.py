@@ -27,7 +27,8 @@ def draw_spheres(scene, env_idxs, positions, radius, color=None):
 
 
 class FrustumGeometry(LineGeometry):
-    def __init__(self, scale=1.0, aspect_ratio=None, pose=None, color=None):
+
+    def __init__(self, scale=1., aspect_ratio=None, pose=None, color=None):
         if color is None:
             color = (1, 0, 0)
         if aspect_ratio is None:
@@ -35,8 +36,8 @@ class FrustumGeometry(LineGeometry):
 
         num_lines = 8
 
-        x = 0.5*scale*aspect_ratio
-        y = 0.5*scale
+        x = 0.5 * scale * aspect_ratio
+        y = 0.5 * scale
         z = scale
 
         verts = np.empty((num_lines, 2), gymapi.Vec3.dtype)
@@ -90,7 +91,7 @@ def draw_camera(
 
     if draw_housing:
         # scale housing based on length
-        cam_xdim, cam_ydim, cam_zdim = (length, length, 2.*length)
+        cam_xdim, cam_ydim, cam_zdim = (length, length, 2. * length)
         box_geom = WireframeBoxGeometry(
             xdim=cam_xdim,
             ydim=cam_ydim,
@@ -106,7 +107,7 @@ def draw_camera(
         # Draw camera "box" housing
         if draw_housing:
             # This pushes the housing backwards, so the triad is drawn at the housing end, not the middle
-            cam_box_transform = transform*gymapi.Transform(p=gymapi.Vec3(0., 0., -cam_zdim/2.))
+            cam_box_transform = transform * gymapi.Transform(p=gymapi.Vec3(0., 0., -cam_zdim / 2.))
             draw_lines(box_geom, scene.gym, scene.viewer, env_ptr, cam_box_transform)
 
         # Draw camera frustum
