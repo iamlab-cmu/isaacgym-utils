@@ -57,7 +57,8 @@ if __name__ == "__main__":
             # desired_ee_transform = franka.get_desired_ee_transform(env_idx, franka_name)
             transforms = [ee_transform]
             draw_transforms(scene, [env_idx], transforms)
-            draw_camera(scene, [env_idx], cam_name, length=0.04)
+            cam_transform = cam.get_transform(env_idx, cam_name)
+            draw_camera(scene, [env_idx], cam_transform, length=0.04)
         draw_contacts(scene, scene.env_idxs)
 
     def cb(scene, _, __):

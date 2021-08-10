@@ -1,7 +1,6 @@
 import numpy as np
 from isaacgym import gymapi
 from isaacgym.gymutil import LineGeometry, AxesGeometry, WireframeSphereGeometry, WireframeBoxGeometry, draw_lines
-from .camera import GymCamera
 
 force_vector_color = gymapi.Vec3(0.7, 0.2, 0.15)
 contact_draw_scale = 0.01
@@ -80,7 +79,7 @@ class FrustumGeometry(LineGeometry):
 def draw_camera(
         scene,
         env_idxs,
-        cam_name_or_transform,
+        transform,
         length=0.05,
         color=(0.9, 0.9, 0.9),
         frustum_aspect_ratio=None,
@@ -102,27 +101,18 @@ def draw_camera(
         frust_geom = FrustumGeometry(length, frustum_aspect_ratio, color=color)
 
     for env_idx in env_idxs:
-        if isinstance(cam_name_or_transform, str):
-            # deference actor based on name
-            cam_name = cam_name_or_transform
-            env_ptr = scene.env_ptrs[env_idx]
-            ch = scene.ch_map[env_idx][cam_name]
-            cam_transform = GymCamera.optical_from_gym_transform(scene.gym.get_camera_transform(scene.sim, env_ptr, ch))
-        else:
-            # assume this is a isaac gym transform
-            # cam_transform is expected to be the pose with respect to the world
-            cam_transform = cam_name_or_transform
+        env_ptr = scene.env_ptrs[env_idx]
 
         # Draw camera "box" housing
         if draw_housing:
             # This pushes the housing backwards, so the triad is drawn at the housing end, not the middle
-            cam_box_transform = cam_transform*gymapi.Transform(p=gymapi.Vec3(0., 0., -cam_zdim/2.))
+            cam_box_transform = transform*gymapi.Transform(p=gymapi.Vec3(0., 0., -cam_zdim/2.))
             draw_lines(box_geom, scene.gym, scene.viewer, env_ptr, cam_box_transform)
 
         # Draw camera frustum
         if draw_frustum:
-            draw_lines(frust_geom, scene.gym, scene.viewer, env_ptr, cam_transform)
+            draw_lines(frust_geom, scene.gym, scene.viewer, env_ptr, transform)
 
         # Draw camera triad
         if draw_triad:
-            draw_transforms(scene, [env_idx], [cam_transform], length=length)
+            draw_transforms(scene, [env_idx], [transform], length=length)
