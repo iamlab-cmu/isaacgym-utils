@@ -1,4 +1,5 @@
 import numpy as np
+import pkg_resources
 from pathlib import Path
 import isaacgym
 import isaacgym_utils
@@ -10,6 +11,10 @@ isaacgym_ASSETS_PATH = isaacgym_PATH.parent / 'assets'
 
 isaacgym_utils_PATH = Path(isaacgym_utils.__file__).parent.parent
 isaacgym_utils_ASSETS_PATH = isaacgym_utils_PATH / 'assets'
+
+isaacgym_VERSION = pkg_resources.working_set.find(
+    pkg_resources.Requirement('isaacgym')
+    ).version
 
 # This is to convert between canonical cam frame and gym cam frame
 # Canonical cam frame is (z forward, x right, y down)

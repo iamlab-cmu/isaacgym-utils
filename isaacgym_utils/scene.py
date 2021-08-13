@@ -3,7 +3,7 @@ from numba import jit
 from isaacgym import gymapi
 
 from .math_utils import np_to_vec3
-from .constants import quat_real_to_gym_cam
+from .constants import isaacgym_VERSION, quat_real_to_gym_cam
 
 
 class GymScene:
@@ -124,7 +124,7 @@ class GymScene:
         self._gym.set_camera_transform(ch, env_ptr, transform)
         self.ch_map[env_idx][name] = ch
 
-    def attach_camera(self, name, camera, actor_name, rb_name, offset_transform=None):
+    def attach_camera(self, name, camera, actor_name, rb_name, offset_transform=None, follow_position_only=False):
         if offset_transform is None:
             offset_transform = gymapi.Transform()
 
@@ -139,7 +139,12 @@ class GymScene:
         rbh = self._gym.get_actor_rigid_body_handle(env_ptr, ah, rb_idx)
 
         ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
-        self._gym.attach_camera_to_body(ch, env_ptr, rbh, offset_transform, 1)
+        if isaacgym_VERSION == '1.0rc1':
+            cam_follow_mode = 0 if follow_position_only else 1
+        else:
+            # only available in at least 1.0rc2
+            cam_follow_mode = gymapi.FOLLOW_POSITION if follow_position_only else gymapi.FOLLOW_TRANSFORM
+        self._gym.attach_camera_to_body(ch, env_ptr, rbh, offset_transform, cam_follow_mode)
         self.ch_map[env_idx][name] = ch
 
     def get_asset(self, name, env_idx=0):
