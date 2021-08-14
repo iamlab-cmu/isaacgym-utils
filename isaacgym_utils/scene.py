@@ -27,7 +27,6 @@ class GymScene:
             self._gym.viewer_camera_look_at(self._viewer, None, cam_pos, look_at)
 
         # create envs
-
         sim_up_axis = self._gym.get_sim_params(self._sim).up_axis
         if isaacgym_VERSION == '1.0rc1' or sim_up_axis == gymapi.UP_AXIS_Y:
             # In 1.0rc1, the 2nd element is always vertical, no matter the up axis setting
