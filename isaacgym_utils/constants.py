@@ -24,5 +24,5 @@ R_real_to_gym_cam = np.array([
     [1, 0, 0],
     [0, 0, -1]
 ])
-quat_real_to_gym_cam = gymapi.Quat(0.7071068, 0.7071068, 0, 0)
-quat_gym_to_real_cam = quat_real_to_gym_cam.inverse()
+quat_gym_from_real_cam = gymapi.Quat(-0.5, 0.5, 0.5, 0.5)
+quat_real_from_gym_cam = quat_gym_from_real_cam.inverse()

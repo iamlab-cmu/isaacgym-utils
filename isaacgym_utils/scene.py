@@ -3,7 +3,7 @@ from numba import jit
 from isaacgym import gymapi
 
 from .math_utils import np_to_vec3
-from .constants import isaacgym_VERSION, quat_real_to_gym_cam
+from .constants import isaacgym_VERSION, quat_gym_from_real_cam
 
 
 class GymScene:
@@ -125,7 +125,8 @@ class GymScene:
             raise ValueError('Camera {} has already been added to env {}!'.format(name, env_idx))
         env_ptr = self.env_ptrs[env_idx]
 
-        transform.r = transform.r * quat_real_to_gym_cam
+        # convert to the "gym" frame from the "optical" or "real" camera convention
+        transform.r = quat_gym_from_real_cam * transform.r
 
         ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
         self._gym.set_camera_transform(ch, env_ptr, transform)
