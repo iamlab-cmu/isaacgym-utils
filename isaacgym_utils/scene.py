@@ -189,12 +189,12 @@ class GymScene:
         self._all_cts_cache_raw = np.zeros((self._n_rbs, self._all_cts_cache_raw_max_cts_per_rb, 2, 3))
         self._all_cts_rb_counts_cache = np.zeros(self._n_rbs)
         self._all_cts_pairs_cache = np.zeros((self._n_rbs, self._n_rbs), dtype='bool')
-        self._update_assets_cts_caches()        
+        self._update_assets_cts_caches()
 
     def _update_assets_cts_caches(self):
         for env_idx in self.env_idxs:
             for asset in self._assets[env_idx].values():
-                asset._set_cts_cache(self._all_cts_cache, self._all_cts_loc_cache, self._all_cts_cache_raw, 
+                asset._set_cts_cache(self._all_cts_cache, self._all_cts_loc_cache, self._all_cts_cache_raw,
                                     self._all_n_cts_cache, self._all_cts_pairs_cache)
 
     def _propagate_asset_cts(self):
