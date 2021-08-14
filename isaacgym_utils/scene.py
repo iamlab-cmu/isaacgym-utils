@@ -27,7 +27,14 @@ class GymScene:
             self._gym.viewer_camera_look_at(self._viewer, None, cam_pos, look_at)
 
         # create envs
-        self._env_lower = gymapi.Vec3(-cfg['es'], 0.0, -cfg['es'])
+        sim_up_axis = self._gym.get_sim_params(self._sim).up_axis
+        if isaacgym_VERSION == '1.0rc1' or sim_up_axis == gymapi.UP_AXIS_Y:
+            # In 1.0rc1, the 2nd element is always vertical, no matter the up axis setting
+            # this logic retains that behavior
+            self._env_lower = gymapi.Vec3(-cfg['es'], 0.0, -cfg['es'])
+        else:
+            # versions above 1.0rc1 when in UP_AXIS_Z mode
+            self._env_lower = gymapi.Vec3(-cfg['es'], -cfg['es'], 0.0)
         self._env_upper = gymapi.Vec3(cfg['es'], cfg['es'], cfg['es'])
         self._env_num_per_row = int(np.sqrt(self._n_envs))
 
