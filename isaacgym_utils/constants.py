@@ -16,13 +16,14 @@ isaacgym_VERSION = pkg_resources.working_set.find(
     pkg_resources.Requirement('isaacgym')
     ).version
 
-# This is to convert between canonical cam frame and gym cam frame
-# Canonical cam frame is (z forward, x right, y down)
-# R_real_cam @ R_real_to_gym_cam = R_gym_cam
+# This is to convert between canonical/real/optical cam frame and gym cam frame
+# Real cam frame is (z forward, x right, y down)
+# Gym cam frame is (x forward, y left, z up)
+# R_gym = R_real * R_real_to_gym_cam
 R_real_to_gym_cam = np.array([
-    [0, 1, 0],
-    [1, 0, 0],
-    [0, 0, -1]
+    [ 0., -1.,  0.],
+    [ 0.,  0., -1.],
+    [ 1.,  0.,  0.],
 ])
-quat_gym_from_real_cam = gymapi.Quat(-0.5, 0.5, 0.5, 0.5)
-quat_real_from_gym_cam = quat_gym_from_real_cam.inverse()
+quat_real_to_gym_cam = gymapi.Quat(0.5, -0.5, 0.5, 0.5)
+quat_gym_to_real_cam = quat_real_to_gym_cam.inverse()

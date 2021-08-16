@@ -9,7 +9,7 @@ from perception import CameraIntrinsics, ColorImage, DepthImage, SegmentationIma
 
 from isaacgym import gymapi
 from .math_utils import vec3_to_np, transform_to_RigidTransform, quat_to_rot, quat_to_rot
-from .constants import quat_real_from_gym_cam
+from .constants import quat_gym_to_real_cam
 
 
 class GymCamera:
@@ -46,7 +46,7 @@ class GymCamera:
         # given the transform provided by isaac gym
         # +z forward, +x right, +y down
         transform = self._scene.gym.get_camera_transform(self._scene.sim, env_ptr, ch)
-        transform.r = quat_real_from_gym_cam * transform.r
+        transform.r = transform.r * quat_gym_to_real_cam
         return transform
 
     def get_extrinsics(self, env_idx, name):

@@ -4,7 +4,7 @@ from numba import jit
 from isaacgym import gymapi
 
 from .math_utils import np_to_vec3
-from .constants import isaacgym_VERSION, quat_gym_from_real_cam
+from .constants import isaacgym_VERSION, quat_real_to_gym_cam
 
 
 class GymScene:
@@ -128,7 +128,7 @@ class GymScene:
 
         # convert to the "gym" frame from the "optical" or "real" camera convention
         tform_gym = copy.deepcopy(transform)
-        tform_gym.r = quat_gym_from_real_cam * tform_gym.r
+        tform_gym.r = tform_gym.r * quat_real_to_gym_cam
 
         ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
         self._gym.set_camera_transform(ch, env_ptr, tform_gym)
@@ -141,7 +141,7 @@ class GymScene:
             offset_tform_gym = copy.deepcopy(offset_transform)
 
         # convert to the "gym" frame from the "optical" or "real" camera convention
-        offset_tform_gym.r = quat_gym_from_real_cam * offset_tform_gym.r
+        offset_tform_gym.r = offset_tform_gym.r * quat_real_to_gym_cam
 
         env_idx = self.current_mutable_env_idx
         if name in self.ch_map[env_idx]:
