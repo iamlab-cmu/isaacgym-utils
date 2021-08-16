@@ -30,9 +30,9 @@ class GymFranka(GymURDFAsset):
         else:
             urdf_path = GymFranka._URDF_PATH_WITH_DYNAMICS
             assets_root = isaacgym_utils_ASSETS_PATH
-        super().__init__(urdf_path, *args, 
-                        shape_props=cfg['shape_props'], 
-                        dof_props=cfg['dof_props'], 
+        super().__init__(urdf_path, *args,
+                        shape_props=cfg['shape_props'],
+                        dof_props=cfg['dof_props'],
                         asset_options=cfg['asset_options'],
                         assets_root=assets_root
                         )
@@ -41,11 +41,11 @@ class GymFranka(GymURDFAsset):
         if 'custom_ee_rb_name' in cfg:
             self._use_custom_ee = True
             self._custom_ee_rb_name = cfg['custom_ee_rb_name']
-        
+
         self._ee_tool_offset = gymapi.Transform()
         if 'custom_ee_offset' in cfg:
             self._ee_tool_offset = gymapi.Transform((np_to_vec3(cfg['custom_ee_offset'])))
-        
+
         self._gripper_offset = gymapi.Transform(gymapi.Vec3(0, 0, 0.1034))
         self._finger_offset = gymapi.Transform(gymapi.Vec3(0, 0, 0.045))
 
@@ -81,13 +81,13 @@ class GymFranka(GymURDFAsset):
     def get_ee_transform(self, env_idx, name, offset=True):
         env_ptr = self._scene.env_ptrs[env_idx]
         bh = self._scene.gym.get_rigid_handle(env_ptr, name, 'panda_hand')
-        ee_transform = self._scene.gym.get_rigid_transform(env_ptr, bh) 
+        ee_transform = self._scene.gym.get_rigid_transform(env_ptr, bh)
         if offset:
             ee_transform = ee_transform * self._gripper_offset * self._ee_tool_offset
         return ee_transform
 
     def get_ee_rigid_transform(self, env_idx, name, offset=True):
-        return transform_to_RigidTransform(self.get_ee_transform(env_idx, name, offset=offset), 
+        return transform_to_RigidTransform(self.get_ee_transform(env_idx, name, offset=offset),
                                                 from_frame='panda_ee', to_frame='panda_link0')
 
     def get_finger_transforms(self, env_idx, name, offset=True):
@@ -145,7 +145,7 @@ class GymFranka(GymURDFAsset):
     @property
     def joint_limits_lower(self):
         return self._LOWER_LIMITS
-        
+
     @property
     def joint_limits_upper(self):
         return self._UPPER_LIMITS
@@ -213,7 +213,7 @@ class GymFranka(GymURDFAsset):
 
         for key, val in props.items():
             setattr(attractor_props, key, val)
-        
+
         self._scene.gym.set_attractor_properties(env_ptr, ath, attractor_props)
 
     def set_ee_transform(self, env_idx, name, transform):
@@ -256,9 +256,9 @@ class GymFranka(GymURDFAsset):
 
     def get_links_rigid_transforms(self, env_idx, name):
         transforms = self.get_links_transforms(env_idx, name)
-        return [transform_to_RigidTransform(transform, 
-                                        from_frame='panda_link{}'.format(i+1), 
-                                        to_frame='panda_link0') 
+        return [transform_to_RigidTransform(transform,
+                                        from_frame='panda_link{}'.format(i+1),
+                                        to_frame='panda_link0')
                 for i, transform in enumerate(transforms)]
 
     def get_jacobian(self, env_idx, name, target_joint=7):
