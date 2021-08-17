@@ -1,3 +1,4 @@
+import copy
 import numpy as np
 from numba import jit
 from isaacgym import gymapi
@@ -125,15 +126,22 @@ class GymScene:
             raise ValueError('Camera {} has already been added to env {}!'.format(name, env_idx))
         env_ptr = self.env_ptrs[env_idx]
 
-        transform.r = transform.r * quat_real_to_gym_cam
+        # convert to the "gym" frame from the "optical" or "real" camera convention
+        tform_gym = copy.deepcopy(transform)
+        tform_gym.r = tform_gym.r * quat_real_to_gym_cam
 
         ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
-        self._gym.set_camera_transform(ch, env_ptr, transform)
+        self._gym.set_camera_transform(ch, env_ptr, tform_gym)
         self.ch_map[env_idx][name] = ch
 
     def attach_camera(self, name, camera, actor_name, rb_name, offset_transform=None, follow_position_only=False):
         if offset_transform is None:
-            offset_transform = gymapi.Transform()
+            offset_tform_gym = gymapi.Transform()
+        else:
+            offset_tform_gym = copy.deepcopy(offset_transform)
+
+        # convert to the "gym" frame from the "optical" or "real" camera convention
+        offset_tform_gym.r = offset_tform_gym.r * quat_real_to_gym_cam
 
         env_idx = self.current_mutable_env_idx
         if name in self.ch_map[env_idx]:
@@ -151,7 +159,7 @@ class GymScene:
         else:
             # only available in at least 1.0rc2
             cam_follow_mode = gymapi.FOLLOW_POSITION if follow_position_only else gymapi.FOLLOW_TRANSFORM
-        self._gym.attach_camera_to_body(ch, env_ptr, rbh, offset_transform, cam_follow_mode)
+        self._gym.attach_camera_to_body(ch, env_ptr, rbh, offset_tform_gym, cam_follow_mode)
         self.ch_map[env_idx][name] = ch
 
     def get_asset(self, name, env_idx=0):
