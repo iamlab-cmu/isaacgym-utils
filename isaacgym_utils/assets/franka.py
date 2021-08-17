@@ -78,6 +78,12 @@ class GymFranka(GymURDFAsset):
     def get_gripper_width(self, env_idx, name):
         return self.get_joints(env_idx, name)[-1]
 
+    def get_base_transform(self, env_idx, name):
+        env_ptr = self._scene.env_ptrs[env_idx]
+        bh = self._scene.gym.get_rigid_handle(env_ptr, name, 'panda_link0')
+        base_transform = self._scene.gym.get_rigid_transform(env_ptr, bh)
+        return base_transform
+
     def get_ee_transform(self, env_idx, name, offset=True):
         env_ptr = self._scene.env_ptrs[env_idx]
         bh = self._scene.gym.get_rigid_handle(env_ptr, name, 'panda_hand')
