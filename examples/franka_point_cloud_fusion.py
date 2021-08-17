@@ -61,7 +61,7 @@ if __name__ == "__main__":
                     [0, 0, -1],
                     [1, 0, 0],
                     [0, -1, 0]
-                ]) @ RigidTransform.x_axis_rotation(np.deg2rad(-45)) @ RigidTransform.y_axis_rotation(np.deg2rad(1))
+                ]) @ RigidTransform.x_axis_rotation(np.deg2rad(-45))
         )))
         # left
         scene.add_standalone_camera(cam_names[1], cam, RigidTransform_to_transform(
@@ -71,7 +71,7 @@ if __name__ == "__main__":
                     [1, 0, 0],
                     [0, 0, 1],
                     [0, -1, 0]
-                ]) @ RigidTransform.x_axis_rotation(np.deg2rad(-45)) @ RigidTransform.y_axis_rotation(np.deg2rad(1))
+                ]) @ RigidTransform.x_axis_rotation(np.deg2rad(-45))
         )))
         # right
         scene.add_standalone_camera(cam_names[2], cam, RigidTransform_to_transform(
@@ -81,7 +81,7 @@ if __name__ == "__main__":
                     [-1, 0, 0],
                     [0, 0, -1],
                     [0, -1, 0]
-                ]) @ RigidTransform.x_axis_rotation(np.deg2rad(-45)) @ RigidTransform.y_axis_rotation(np.deg2rad(1))
+                ]) @ RigidTransform.x_axis_rotation(np.deg2rad(-45))
         )))
     scene.setup_all_envs(setup)
 
