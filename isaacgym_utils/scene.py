@@ -308,6 +308,15 @@ class GymScene:
         if self.gui:
             self._gym.destroy_viewer(self._viewer)
 
+    def view_env(self, env_idx, cam_pos=None, look_at=None, custom_draws=None):
+        env_ptr = self.env_ptrs[env_idx]
+        if cam_pos is None:
+            cam_pos = gymapi.Vec3(1.8, 0, 1.2)
+        if look_at is None:
+            look_at = gymapi.Vec3(0.5, 0, 0.75)
+        self._gym.viewer_camera_look_at(self._viewer, env_ptr, cam_pos, look_at)
+        self.render(custom_draws=custom_draws)
+
 
 @jit(nopython=True)
 def _compute_ct_sum_idxs(ct_idxs, cts_idxs_body, rb_counts):
