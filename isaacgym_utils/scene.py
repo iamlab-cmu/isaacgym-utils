@@ -26,6 +26,8 @@ class GymScene:
                 cam_pos = gymapi.Vec3(1.5, 1.5, 0)
                 look_at = gymapi.Vec3(0.5, 1, 0)
             self._gym.viewer_camera_look_at(self._viewer, None, cam_pos, look_at)
+            self._cam_pos = cam_pos
+            self._look_at = look_at
 
         # create envs
         sim_up_axis = self._gym.get_sim_params(self._sim).up_axis
@@ -309,13 +311,14 @@ class GymScene:
             self._gym.destroy_viewer(self._viewer)
 
     def view_env(self, env_idx, cam_pos=None, look_at=None, custom_draws=None):
-        env_ptr = self.env_ptrs[env_idx]
-        if cam_pos is None:
-            cam_pos = gymapi.Vec3(1.8, 0, 1.2)
-        if look_at is None:
-            look_at = gymapi.Vec3(0.5, 0, 0.75)
-        self._gym.viewer_camera_look_at(self._viewer, env_ptr, cam_pos, look_at)
-        self.render(custom_draws=custom_draws)
+        if self._gui:
+            env_ptr = self.env_ptrs[env_idx]
+            if cam_pos is None:
+                cam_pos = self._cam_pos
+            if look_at is None:
+                look_at = self._look_at
+            self._gym.viewer_camera_look_at(self._viewer, env_ptr, cam_pos, look_at)
+            self.render(custom_draws=custom_draws)
 
 
 @jit(nopython=True)
