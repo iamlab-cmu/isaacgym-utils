@@ -2,6 +2,15 @@
 
 from setuptools import setup
 
+# Optional dependency groups.
+extras = {
+    "rl": ["stable_baselines3"],
+}
+
+extras["all"] = list(
+    set([item for group in extras.values() for item in group])
+)
+
 requirements = [
     'autolab_core',
     'autolab_perception',
@@ -11,7 +20,6 @@ requirements = [
     'numba',
     'numpy-quaternion',
     'gym',
-    'stable_baselines3',
 ]
 
 setup(name='isaacgym_utils',
@@ -20,5 +28,6 @@ setup(name='isaacgym_utils',
         author_email='jackyliang@cmu.edu',
         package_dir = {'': '.'},
         packages=['isaacgym_utils'],
-        install_requires=requirements
+        install_requires=requirements,
+        extras_require=extras,
         )
