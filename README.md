@@ -25,7 +25,17 @@ Reinforcement learning (RL):
 pip install -e isaacgym-utils[rl]
 ```
 
-All functionality:
+Parallel IsaacGym instances via Ray:
+```
+pip install -e isaacgym-utils[ray]
+```
+
+Multiple capabilities can be specified:
+```
+pip install -e isaacgym-utils[ray,rl]
+```
+
+Or, install all capabilities:
 ```
 pip install -e isaacgym-utils[all]
 ```
@@ -43,15 +53,19 @@ python examples/run_franka.py
 Each example script has a corresponding config file in `cfg/` that can be used to change object properties like friction.
 
 ### Running with Ray
+
 "[Ray](https://github.com/ray-project/ray) is a fast and simple framework for building and running distributed
 applications."
 
-Do `pip install ray` to install it.
+Requires the `[ray]` or `[all]` installation of `isaacgym-utils`.
 
-See `isaacgym_utils/examples/run_franka_pick_block_ray.py` for an example of
+See `isaacgym_utils/examples/franka_pick_block_ray.py` for an example of
 running multiple `isaacgym` instances in parallel using Ray.
 
-## RL Environment
+### RL environment
+
+Requires the `[rl]` or `[all]` installation of `isaacgym-utils`.
+
 See `isaacgym_utils/rl/vec_env.py` for the abstract Vec Env base class that is used for RL.
 It contains definitions of methods that are expected to be overwritten by a child class for a specific RL environment.
 
