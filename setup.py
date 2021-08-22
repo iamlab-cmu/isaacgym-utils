@@ -10,7 +10,8 @@ requirements = [
     'triangle',
     'numba',
     'numpy-quaternion',
-    'gym'
+    'gym',
+    'stable_baselines3',
 ]
 
 setup(name='isaacgym_utils',
