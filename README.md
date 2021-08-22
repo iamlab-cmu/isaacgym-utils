@@ -3,13 +3,31 @@ This repo contains wrappers and utilities for `isaacgym`
 
 ## Installation
 
-Install IsaacGym from [Nvidia](https://developer.nvidia.com/isaac-gym)
+### Install IsaacGym
 
-Install `isaacgym-utils`
+Install IsaacGym from either:
+- [Nvidia](https://developer.nvidia.com/isaac-gym)
+- IAM Lab's [internal repo](https://github.com/iamlab-cmu/isaacgym.git)
+
+### Install isaacgym-utils
+
+Install `isaacgym-utils`:
 
 ```bash
 git clone https://github.com/iamlab-cmu/isaacgym-utils.git
 pip install -e isaacgym-utils
+```
+
+By default, only "core" dependencies are installed. To install dependencies needed for optional `isaagym-utils` capabilities, modify the above `pip install` command to indicate the desired optional capability. The following commands will also install the core dependencies.
+
+Reinforcement learning (RL):
+```
+pip install -e isaacgym-utils[rl]
+```
+
+All functionality:
+```
+pip install -e isaacgym-utils[all]
 ```
 
 ## Running examples
