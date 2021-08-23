@@ -4,6 +4,7 @@ from setuptools import setup
 
 # Optional dependency groups.
 extras = {
+    "ray": ["ray"],
     "rl": ["stable_baselines3"],
 }
 
