@@ -49,7 +49,7 @@ class GymScene:
         self.ch_map = {idx : {} for idx in self.env_idxs}
 
         # track segmentations
-        self._seg_id = 1
+        self._seg_ids = [1 for _ in range(self._n_envs)]
         self.seg_id_map = {idx : {} for idx in self.env_idxs}
 
         # track contacts
@@ -178,7 +178,7 @@ class GymScene:
         else:
             pose = poses
 
-        ah = self._gym.create_actor(env_ptr, asset.GLOBAL_ASSET_CACHE[asset.asset_uid], pose, name, env_idx, collision_filter, self._seg_id)
+        ah = self._gym.create_actor(env_ptr, asset.GLOBAL_ASSET_CACHE[asset.asset_uid], pose, name, env_idx, collision_filter, self._seg_ids[env_idx])
         self.ah_map[env_idx][name] = ah
 
         asset._post_create_actor(env_idx, name)
@@ -186,8 +186,8 @@ class GymScene:
         asset.set_rb_props(env_idx, name)
         asset.set_dof_props(env_idx, name)
 
-        self.seg_id_map[env_idx][name] = self._seg_id
-        self._seg_id += 1
+        self.seg_id_map[env_idx][name] = self._seg_ids[env_idx]
+        self._seg_ids[env_idx] += 1
 
         # update cts cache size
         self._n_rbs = self._gym.get_sim_rigid_body_count(self._sim)
