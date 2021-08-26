@@ -49,7 +49,7 @@ class GymScene:
         self.ch_map = {idx : {} for idx in self.env_idxs}
 
         # track segmentations
-        self._seg_id = 0
+        self._seg_id = 1
         self.seg_id_map = {idx : {} for idx in self.env_idxs}
 
         # track contacts

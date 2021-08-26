@@ -17,7 +17,11 @@ from visualization.visualizer3d import Visualizer3D as vis3d
 def vis_cam_images(image_list):
     for i in range(0, len(image_list)):
         plt.figure()
-        plt.imshow(image_list[i].data)
+        im = image_list[i].data
+        # for showing normal map
+        if im.min() < 0:
+            im = im / 2 + 0.5
+        plt.imshow(im)
     plt.show()
 
 
@@ -48,13 +52,9 @@ if __name__ == "__main__":
     # Add cameras
     cam = GymCamera(scene, cam_props=cfg['camera'])
     cam_names = [f'cam{i}' for i in range(3)]
-    
-    def setup(scene, _):
-        scene.add_asset('table0', table, table_transform)
-        scene.add_asset('franka0', franka, franka_transform, collision_filter=2) # avoid self-collision
-
+    cam_transforms = [
         # front
-        scene.add_standalone_camera(cam_names[0], cam, RigidTransform_to_transform(
+        RigidTransform_to_transform(
             RigidTransform(
                 translation=[1.38, 0, 1],
                 rotation=np.array([
@@ -62,9 +62,9 @@ if __name__ == "__main__":
                     [1, 0, 0],
                     [0, -1, 0]
                 ]) @ RigidTransform.x_axis_rotation(np.deg2rad(-45))
-        )))
+        )),
         # left
-        scene.add_standalone_camera(cam_names[1], cam, RigidTransform_to_transform(
+        RigidTransform_to_transform(
             RigidTransform(
                 translation=[0.5, -0.8, 1],
                 rotation=np.array([
@@ -72,9 +72,9 @@ if __name__ == "__main__":
                     [0, 0, 1],
                     [0, -1, 0]
                 ]) @ RigidTransform.x_axis_rotation(np.deg2rad(-45))
-        )))
+        )),
         # right
-        scene.add_standalone_camera(cam_names[2], cam, RigidTransform_to_transform(
+        RigidTransform_to_transform(
             RigidTransform(
                 translation=[0.5, 0.8, 1],
                 rotation=np.array([
@@ -82,22 +82,35 @@ if __name__ == "__main__":
                     [0, 0, -1],
                     [0, -1, 0]
                 ]) @ RigidTransform.x_axis_rotation(np.deg2rad(-45))
-        )))
+        ))
+    ]
+    
+    def setup(scene, _):
+        scene.add_asset('table0', table, table_transform)
+        scene.add_asset('franka0', franka, franka_transform, collision_filter=2) # avoid self-collision
+
+        scene.add_standalone_camera(cam_names[0], cam, cam_transforms[0])
+        scene.add_standalone_camera(cam_names[1], cam, cam_transforms[1])
+        scene.add_standalone_camera(cam_names[2], cam, cam_transforms[2])
     scene.setup_all_envs(setup)
 
     # Render images
     scene.render_cameras()
-    color_list, depth_list = [], []
+    color_list, depth_list, seg_list, normal_list = [], [], [], []
     env_idx = 0
     for cam_name in cam_names:
         # get images of cameras in first env 
-        color, depth, _ = cam.frames(env_idx, cam_name)
-        color_list.append(color)
-        depth_list.append(depth)
+        frames = cam.frames(env_idx, cam_name)
+        color_list.append(frames['color'])
+        depth_list.append(frames['depth'])
+        seg_list.append(frames['seg'])
+        normal_list.append(frames['normal'])
 
     # Plot color and depth images
     vis_cam_images(color_list)
-    vis_cam_images(depth_list) 
+    vis_cam_images(depth_list)
+    vis_cam_images(seg_list)
+    vis_cam_images(normal_list)
 
     # Get camera intrinsics
     intrs = [cam.get_intrinsics(cam_name) for cam_name in cam_names]
@@ -130,5 +143,3 @@ if __name__ == "__main__":
             scale=0.005
         )
     vis3d.show()
-
-    import IPython; IPython.embed(); exit(0)
