@@ -89,7 +89,8 @@ class GymCamera:
                 depth = _process_gym_depth(raw_depth)
                 depth_im = DepthImage(depth, frame=name)
             
-            normal = _make_normal_map(depth_im, self.get_intrinsics(name))
+            T_cam_world = self.get_extrinsics(env_idx, name)
+            normal = _make_normal_map(depth_im, self.get_intrinsics(name), T_cam_world)
             frames['normal'] = NormalCloudImage(normal, frame=name)
         
         return frames
@@ -103,7 +104,7 @@ def _process_gym_depth(raw_depth, flip=True):
     return raw_depth * (-1 if flip else 1)
 
 
-def _make_normal_map(depth, intr):
+def _make_normal_map(depth, intr, T_cam_world):
     # from https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ismar2011.pdf
     pts = intr.deproject_to_image(depth).data
     
@@ -111,9 +112,10 @@ def _make_normal_map(depth, intr):
     B = pts[:-1, 1:] - pts[:-1, :-1]
     C = np.cross(A.reshape(-1, 3), B.reshape(-1, 3))
     D = C / np.linalg.norm(C, axis=1).reshape(-1, 1)
+    E = D @ T_cam_world.rotation.T
     
     normal = np.zeros((depth.shape[0], depth.shape[1], 3))
-    normal[:-1, :-1] = D.reshape(A.shape)
+    normal[:-1, :-1] = E.reshape(A.shape)
     normal[-1, :] = normal[-2, :]
     normal[:, -1] = normal[:, -2]
 
