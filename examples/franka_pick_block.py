@@ -64,8 +64,8 @@ if __name__ == "__main__":
     def cb(scene, _, __):
         env_idx = 0
         scene.render_cameras()
-        color, depth, seg = cam.frames(env_idx, cam_name)
-        cam_pub.pub(color, depth, seg)
+        frames = cam.frames(env_idx, cam_name)
+        cam_pub.pub(frames['color'], frames['depth'], frames['seg'])
 
     policy = GraspBlockPolicy(franka, franka_name, block, block_name)
 
