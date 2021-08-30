@@ -4,11 +4,11 @@ from queue import Empty
 
 import numpy as np
 from simple_zmq import SimpleZMQPublisher
-from perception import CameraIntrinsics, ColorImage, DepthImage, SegmentationImage, NormalCloudImage
+from autolab_core import CameraIntrinsics, ColorImage, DepthImage, SegmentationImage, NormalCloudImage
 
 from isaacgym import gymapi
 from .math_utils import transform_to_RigidTransform
-from .constants import quat_gym_to_real_cam
+from .constants import quat_gym_to_real_cam, quat_real_to_gym_cam
 
 
 class GymCamera:
@@ -50,6 +50,21 @@ class GymCamera:
         transform.r = transform.r * quat_gym_to_real_cam
         return transform
 
+    def set_look_at(self, env_idx, name, look_from_pos, look_at_pos):
+        env_ptr = self._scene.env_ptrs[env_idx]
+        ch = self._scene.ch_map[env_idx][name]
+
+        self._scene.gym.set_camera_location(ch, env_ptr, look_from_pos, look_at_pos)
+
+    def set_transform(self, env_idx, name, transform):
+        env_ptr = self._scene.env_ptrs[env_idx]
+        ch = self._scene.ch_map[env_idx][name]
+
+        tform_gym = copy.deepcopy(transform)
+        tform_gym.r = tform_gym.r * quat_real_to_gym_cam
+
+        self._scene.gym.set_camera_transform(ch, env_ptr, tform_gym)
+
     def get_extrinsics(self, env_idx, name):
         transform = self.get_transform(env_idx, name)
         return transform_to_RigidTransform(transform, name, 'world')
@@ -89,8 +104,7 @@ class GymCamera:
                 depth = _process_gym_depth(raw_depth)
                 depth_im = DepthImage(depth, frame=name)
             
-            T_cam_world = self.get_extrinsics(env_idx, name)
-            normal = _make_normal_map(depth_im, self.get_intrinsics(name), T_cam_world)
+            normal = _make_normal_map(depth_im, self.get_intrinsics(name))
             frames['normal'] = NormalCloudImage(normal, frame=name)
         
         return frames
@@ -104,20 +118,25 @@ def _process_gym_depth(raw_depth, flip=True):
     return raw_depth * (-1 if flip else 1)
 
 
-def _make_normal_map(depth, intr, T_cam_world):
+def _make_normal_map(depth, intr):
     # from https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ismar2011.pdf
+    depth_data = depth.data.copy()
+    inf_px_mask = np.isinf(depth_data)
+    depth_data[inf_px_mask] = 100
+    depth = DepthImage(depth_data, frame=depth.frame)
+
     pts = intr.deproject_to_image(depth).data
     
     A = pts[1:, :-1] - pts[:-1, :-1]
     B = pts[:-1, 1:] - pts[:-1, :-1]
     C = np.cross(A.reshape(-1, 3), B.reshape(-1, 3))
     D = C / np.linalg.norm(C, axis=1).reshape(-1, 1)
-    E = D @ T_cam_world.rotation.T
     
     normal = np.zeros((depth.shape[0], depth.shape[1], 3))
-    normal[:-1, :-1] = E.reshape(A.shape)
+    normal[:-1, :-1] = D.reshape(A.shape)
     normal[-1, :] = normal[-2, :]
     normal[:, -1] = normal[:, -2]
+    normal[inf_px_mask] = 0
 
     return normal
 
