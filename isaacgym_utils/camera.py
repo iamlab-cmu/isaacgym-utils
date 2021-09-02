@@ -1,13 +1,14 @@
 from time import sleep
 from multiprocessing import Queue, Process
 from queue import Empty
+import quaternion
 
 import numpy as np
 from simple_zmq import SimpleZMQPublisher
-from autolab_core import CameraIntrinsics, ColorImage, DepthImage, SegmentationImage, NormalCloudImage
+from autolab_core import CameraIntrinsics, ColorImage, DepthImage, SegmentationImage, NormalCloudImage, RigidTransform
 
 from isaacgym import gymapi
-from .math_utils import transform_to_RigidTransform
+from .math_utils import transform_to_RigidTransform, vec3_to_np, np_quat_to_quat
 from .constants import quat_gym_to_real_cam, quat_real_to_gym_cam
 
 
@@ -51,17 +52,29 @@ class GymCamera:
         return transform
 
     def set_look_at(self, env_idx, name, look_from_pos, look_at_pos):
-        env_ptr = self._scene.env_ptrs[env_idx]
-        ch = self._scene.ch_map[env_idx][name]
+        z_axis = vec3_to_np(look_at_pos - look_from_pos)
+        z_axis = z_axis / np.linalg.norm(z_axis)
 
-        self._scene.gym.set_camera_location(ch, env_ptr, look_from_pos, look_at_pos)
+        y_axis = np.array([0, 0, -1])
+        y_axis = y_axis - y_axis @ z_axis * z_axis
+        y_axis = y_axis / np.linalg.norm(y_axis)
+
+        x_axis = np.cross(y_axis, z_axis)
+
+        R = np.c_[x_axis, y_axis, z_axis]
+        q = np_quat_to_quat( quaternion.from_rotation_matrix(R))
+        
+        cam_transform = gymapi.Transform(look_from_pos, q)
+        self.set_transform(env_idx, name, cam_transform)
 
     def set_transform(self, env_idx, name, transform):
         env_ptr = self._scene.env_ptrs[env_idx]
         ch = self._scene.ch_map[env_idx][name]
 
-        tform_gym = copy.deepcopy(transform)
-        tform_gym.r = tform_gym.r * quat_real_to_gym_cam
+        tform_gym = gymapi.Transform(
+            p=transform.p,
+            r=transform.r * quat_real_to_gym_cam
+        )
 
         self._scene.gym.set_camera_transform(ch, env_ptr, tform_gym)
 
