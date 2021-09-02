@@ -1,3 +1,4 @@
+from copy import deepcopy
 import numpy as np
 from numba import jit
 from isaacgym import gymapi
@@ -126,10 +127,8 @@ class GymScene:
         env_ptr = self.env_ptrs[env_idx]
 
         # convert to the "gym" frame from the "optical" or "real" camera convention
-        tform_gym = gymapi.Transform(
-            p=transform.p,
-            r=transform.r * quat_real_to_gym_cam
-        )
+        tform_gym = deepcopy(transform)
+        tform_gym.r = tform_gym.r * quat_real_to_gym_cam
 
         ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
         self._gym.set_camera_transform(ch, env_ptr, tform_gym)
@@ -139,7 +138,7 @@ class GymScene:
         if offset_transform is None:
             offset_tform_gym = gymapi.Transform()
         else:
-            offset_tform_gym = copy.deepcopy(offset_transform)
+            offset_tform_gym = deepcopy(offset_transform)
 
         # convert to the "gym" frame from the "optical" or "real" camera convention
         offset_tform_gym.r = offset_tform_gym.r * quat_real_to_gym_cam

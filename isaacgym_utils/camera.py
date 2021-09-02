@@ -1,3 +1,4 @@
+from copy import deepcopy
 from time import sleep
 from multiprocessing import Queue, Process
 from queue import Empty
@@ -63,7 +64,7 @@ class GymCamera:
 
         R = np.c_[x_axis, y_axis, z_axis]
         q = np_quat_to_quat( quaternion.from_rotation_matrix(R))
-        
+
         cam_transform = gymapi.Transform(look_from_pos, q)
         self.set_transform(env_idx, name, cam_transform)
 
@@ -71,10 +72,8 @@ class GymCamera:
         env_ptr = self._scene.env_ptrs[env_idx]
         ch = self._scene.ch_map[env_idx][name]
 
-        tform_gym = gymapi.Transform(
-            p=transform.p,
-            r=transform.r * quat_real_to_gym_cam
-        )
+        tform_gym = deepcopy(transform)
+        tform_gym.r = tform_gym.r * quat_real_to_gym_cam
 
         self._scene.gym.set_camera_transform(ch, env_ptr, tform_gym)
 
