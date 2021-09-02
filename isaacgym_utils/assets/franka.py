@@ -42,6 +42,9 @@ class GymFranka(GymURDFAsset):
             self._use_custom_ee = True
             self._custom_ee_rb_name = cfg['custom_ee_rb_name']
 
+        self._left_finger_rb_name = cfg.get('custom_left_finger_rb_name', 'panda_leftfinger')
+        self._right_finger_rb_name = cfg.get('custom_right_finger_rb_name', 'panda_rightfinger')
+
         self._ee_tool_offset = gymapi.Transform()
         if 'custom_ee_offset' in cfg:
             self._ee_tool_offset = gymapi.Transform((np_to_vec3(cfg['custom_ee_offset'])))
@@ -98,8 +101,8 @@ class GymFranka(GymURDFAsset):
 
     def get_finger_transforms(self, env_idx, name, offset=True):
         env_ptr = self._scene.env_ptrs[env_idx]
-        bh_lf = self._scene.gym.get_rigid_handle(env_ptr, name, 'panda_leftfinger')
-        bh_rf = self._scene.gym.get_rigid_handle(env_ptr, name, 'panda_rightfinger')
+        bh_lf = self._scene.gym.get_rigid_handle(env_ptr, name, self._left_finger_rb_name)
+        bh_rf = self._scene.gym.get_rigid_handle(env_ptr, name, self._right_finger_rb_name)
         lf_transform = self._scene.gym.get_rigid_transform(env_ptr, bh_lf)
         rf_transform = self._scene.gym.get_rigid_transform(env_ptr, bh_rf)
 
@@ -120,7 +123,7 @@ class GymFranka(GymURDFAsset):
         all_ct_forces = self._scene.gym.get_rigid_contact_forces(self._scene.sim)
         env_ptr = self._scene.env_ptrs[env_idx]
         ah = self._scene.ah_map[env_idx][name]
-        rbi_lf = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map['panda_leftfinger'], gymapi.DOMAIN_SIM)
+        rbi_lf = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._left_finger_rb_name], gymapi.DOMAIN_SIM)
         ct_forces_lf = np.array([all_ct_forces[rbi_lf][k] for k in 'xyz'])
 
         return ct_forces_lf
@@ -129,7 +132,7 @@ class GymFranka(GymURDFAsset):
         all_ct_forces = self._scene.gym.get_rigid_contact_forces(self._scene.sim)
         env_ptr = self._scene.env_ptrs[env_idx]
         ah = self._scene.ah_map[env_idx][name]
-        rbi_rf = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map['panda_rightfinger'], gymapi.DOMAIN_SIM)
+        rbi_rf = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._right_finger_rb_name], gymapi.DOMAIN_SIM)
         ct_forces_rf = np.array([all_ct_forces[rbi_rf][k] for k in 'xyz'])
 
         return ct_forces_rf
