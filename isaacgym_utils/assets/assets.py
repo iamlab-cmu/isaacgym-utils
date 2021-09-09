@@ -392,7 +392,23 @@ class GymBoxAsset(GymAsset):
         asset_uid = 'box_{}_{}_{}'.format(sx, sy, sz)
         gym_asset = self._scene.gym.create_box(self._scene.sim, sx, sy, sz, self._gym_asset_options)
         self._insert_asset(asset_uid, gym_asset)
-        
+
+        self._sx = sx
+        self._sy = sy
+        self._sz = sz
+    
+    @property
+    def sx(self):
+        return self._sx
+
+    @property
+    def sy(self):
+        return self._sy
+
+    @property
+    def sz(self):
+        return self._sz
+
 
 class GymTetGridAsset(GymAsset):
 
@@ -423,6 +439,17 @@ class GymCapsuleAsset(GymAsset):
         gym_asset = self._scene.gym.create_capsule(self._scene.sim, radius, width, self._gym_asset_options)
         self._insert_asset(asset_uid, gym_asset)
 
+        self._radius = radius
+        self._width = width
+
+    @property
+    def radius(self):
+        return self._radius
+
+    @property
+    def width(self):
+        return self._width
+
 
 class GymSphereAsset(GymAsset):
 
@@ -431,3 +458,9 @@ class GymSphereAsset(GymAsset):
         asset_uid = 'sphere_{}'.format(radius)
         gym_asset = self._scene.gym.create_sphere(self._scene.sim, radius, self._gym_asset_options)
         self._insert_asset(asset_uid, gym_asset)
+
+        self._radius = radius
+
+    @property
+    def radius(self):
+        return self._radius
