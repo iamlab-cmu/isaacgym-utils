@@ -217,7 +217,7 @@ class GymScene:
 
         # filter out invalid cts
         eps = 1e-5
-        invalid_mask = all_cts['env0'] == -1 & \
+        invalid_mask = (all_cts['env0'] == -1) & \
             np.isclose(all_cts['lambda'], 0, atol=eps) & \
             np.isclose(all_cts['normal']['x'], 0, atol=eps) & \
             np.isclose(all_cts['normal']['y'], 0, atol=eps) & \
