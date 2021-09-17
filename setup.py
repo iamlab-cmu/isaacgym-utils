@@ -13,7 +13,7 @@ extras["all"] = list(
 )
 
 requirements = [
-    'autolab_core',
+    'autolab_core>=1.1.0',
     'visualization',
     'simple_zmq',
     'triangle',
