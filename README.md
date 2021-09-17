@@ -14,7 +14,7 @@ Install IsaacGym from either:
 Install `isaacgym-utils`:
 
 ```bash
-git clone https://github.com/iamlab-cmu/isaacgym-utils.git
+git clone git@github.com:iamlab-cmu/isaacgym-utils.git
 pip install -e isaacgym-utils
 ```
 
