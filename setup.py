@@ -4,6 +4,7 @@ from setuptools import setup
 
 # Optional dependency groups.
 extras = {
+    "ik": ["roboticstoolbox-python", "spatialmath-python"],
     "ray": ["ray"],
     "rl": ["stable_baselines3"],
 }

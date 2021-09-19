@@ -18,17 +18,18 @@ git clone git@github.com:iamlab-cmu/isaacgym-utils.git
 pip install -e isaacgym-utils
 ```
 
-By default, only "core" dependencies are installed. To install dependencies needed for optional `isaagym-utils` capabilities, modify the above `pip install` command to indicate the desired optional capability. The following commands will also install the core dependencies.
+By default, only "core" dependencies are installed. To install dependencies needed for optional `isaagym-utils` capabilities, modify the above `pip install` command to indicate the desired optional capability. Core dependencies will also be installed with any optional capabilities.
 
-Reinforcement learning (RL):
+Optional capability groups:
 ```
-pip install -e isaacgym-utils[rl]
+pip install -e isaacgym-utils[group]
 ```
 
-Parallel IsaacGym instances via Ray:
-```
-pip install -e isaacgym-utils[ray]
-```
+where `group` is the following:
+- `ik`: inverse kinematics (IK)
+- `rl`: reinforcement learning (RL)
+- `ray`: parallel IsaacGym instances via Ray
+- `all`: install all capability groups
 
 Multiple capabilities can be specified:
 ```
@@ -51,6 +52,12 @@ python examples/run_franka.py
 ```
 
 Each example script has a corresponding config file in `cfg/` that can be used to change object properties like friction.
+
+### Inverse Kinematics
+
+Requires the `[ik]` or `[all]` installation of `isaacgym-utils`.
+
+See `isaacgym_utils/examples/franka_pick_block_ik.py` for an example of using IK for the Franka Panda robot. IK is provided by the [Robotics Toolbox for Python](https://github.com/petercorke/robotics-toolbox-python).
 
 ### Running with Ray
 

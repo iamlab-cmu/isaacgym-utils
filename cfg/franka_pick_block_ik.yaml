@@ -1,0 +1,74 @@
+scene:
+  n_envs: 10
+  es: 1
+  gui: 1
+  cam:
+    cam_pos: [1.2, 0, 1.2]
+    look_at: [0.5, 0, 1]
+  gym:
+    dt: 0.01
+    substeps: 2
+    up_axis: z
+    flex:
+      solver_type: 5
+      num_outer_iterations: 4
+      num_inner_iterations: 30
+      relaxation: 0.75
+      warm_start: 0.8
+      shape_collision_margin: 1e-3
+      contact_regularization: 1e-7
+      deterministic_mode: True
+    device:
+      compute: 0
+      graphics: 0
+
+franka:
+  asset_options:
+    fix_base_link: True
+    flip_visual_attachments: True
+    armature: 0.01
+    max_linear_velocity: 100.0
+    max_angular_velocity: 40.0
+    disable_gravity: True
+  attractor_props:
+    stiffness: 1e3
+    damping: 2.5e2
+  shape_props:
+    thickness: 1e-3
+  dof_props:
+    stiffness: [2e3, 2e3, 2e3, 2e3, 2e3, 2e3, 2e3, 1e2, 1e2]
+    damping: [2e2, 2e2, 2e2, 2e2, 2e2, 2e2, 2e2, 5, 5]
+    effort: [87, 87, 87, 87, 12, 12, 12, 100, 100]
+
+table:
+  dims:
+    sx: 1
+    sy: 1
+    sz: 0.5
+  shape_props:
+    friction: 0.1
+    rolling_friction: 0
+    torsion_friction: 0
+    thickness: 2e-3
+  asset_options:
+    fix_base_link: True
+
+block:
+  dims:
+    sx: 0.05
+    sy: 0.05
+    sz: 0.05
+  shape_props:
+    friction: 0.2
+    rolling_friction: 0.01
+    torsion_friction: 0.01
+    thickness: 2e-3
+  rb_props:
+    flags: none # can be none, no_sim, no_gravity
+    color: [0.2, 0.7, 0.2]
+  asset_options:
+    density: 1000
+
+camera:
+  width: 320
+  height: 240
