@@ -32,12 +32,12 @@ class GymFrankaVecEnv(GymVecEnv):
         table_transform = gymapi.Transform(p=gymapi.Vec3(cfg['table']['dims']['sx']/3, 0, cfg['table']['dims']['sz']/2))
         self._franka_transform = gymapi.Transform(p=gymapi.Vec3(0, 0, cfg['table']['dims']['sz'] + 0.01))
 
-        self._franka_name = 'franka0'
-        self._table_name = 'table0'
+        self._franka_name = 'franka'
+        self._table_name = 'table'
 
         def setup(scene, _):
             scene.add_asset(self._table_name, self._table, table_transform)
-            scene.add_asset(self._franka_name, franka, self._franka_transform, collision_filter=2) # avoid self-collisions
+            scene.add_asset(self._franka_name, franka, self._franka_transform, collision_filter=1) # avoid self-collisions
         return setup
 
     def _init_action_space(self, cfg):
@@ -258,7 +258,7 @@ class GymFrankaBlockVecEnv(GymFrankaVecEnv):
                             rb_props=cfg['banana']['rb_props'],
                             asset_options=cfg['banana']['asset_options']
                             )
-        self._block_name = 'block0'
+        self._block_name = 'block'
         self._banana_name = 'banana0'
 
         def setup(scene, env_idx):

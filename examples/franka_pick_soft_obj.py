@@ -34,21 +34,21 @@ if __name__ == "__main__":
 
     def custom_draws(scene):
         for env_idx in scene.env_idxs:
-            ee_transform = franka.get_ee_transform(env_idx, 'franka0')
-            desired_ee_transform = franka.get_desired_ee_transform(env_idx, 'franka0')
+            ee_transform = franka.get_ee_transform(env_idx, 'franka')
+            desired_ee_transform = franka.get_desired_ee_transform(env_idx, 'franka')
 
             draw_transforms(scene, [env_idx], [ee_transform, desired_ee_transform])
 
     def setup(scene, _):
-        scene.add_asset('table0', table, table_transform)
-        scene.add_asset('franka0', franka, franka_transform, collision_filter=2) # avoid self-collision
-        scene.add_asset('softgrid0', softgrid, softgrid_pose)
+        scene.add_asset('table', table, table_transform)
+        scene.add_asset('franka', franka, franka_transform, collision_filter=1) # avoid self-collision
+        scene.add_asset('softgrid', softgrid, softgrid_pose)
     scene.setup_all_envs(setup)
 
-    ee_pose = franka.get_ee_transform(0, 'franka0')
+    ee_pose = franka.get_ee_transform(0, 'franka')
     softgrid_grasp_pose = gymapi.Transform(p=softgrid_pose.p, r=ee_pose.r)
     softgrid_grasp_pose.p.y = 0
     softgrid_grasp_pose.p.x = 0.35
 
-    policy = GraspPointPolicy(franka, 'franka0', softgrid_grasp_pose)
+    policy = GraspPointPolicy(franka, 'franka', softgrid_grasp_pose)
     scene.run(policy=policy, custom_draws=custom_draws)

@@ -34,7 +34,7 @@ if __name__ == "__main__":
     table_transform = gymapi.Transform(p=gymapi.Vec3(cfg['table']['dims']['sx']/3, 0, cfg['table']['dims']['sz']/2))
     franka_transform = gymapi.Transform(p=gymapi.Vec3(0, 0, cfg['table']['dims']['sz'] + 0.01))
     
-    table_name, franka_name, block_name = 'table0', 'franka0', 'block0'
+    table_name, franka_name, block_name = 'table', 'franka', 'block'
 
     cam = GymCamera(scene, cam_props=cfg['camera'])
     cam_offset_transform = RigidTransform_to_transform(RigidTransform(
@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     def setup(scene, _):
         scene.add_asset(table_name, table, table_transform)
-        scene.add_asset(franka_name, franka, franka_transform, collision_filter=2) # avoid self-collisions
+        scene.add_asset(franka_name, franka, franka_transform, collision_filter=1) # avoid self-collisions
         scene.add_asset(block_name, block, gymapi.Transform()) # we'll sample block poses later
         scene.attach_camera(cam_name, cam, franka_name, 'panda_hand', offset_transform=cam_offset_transform)
     scene.setup_all_envs(setup)    

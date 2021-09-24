@@ -27,12 +27,12 @@ if __name__ == "__main__":
     franka_transform = gymapi.Transform(p=gymapi.Vec3(0, 0, cfg['table']['dims']['sz'] + 0.01))
     
     def setup(scene, _):
-        scene.add_asset('table0', table, table_transform)
-        scene.add_asset('franka0', franka, franka_transform, collision_filter=2) # avoid self-collision
+        scene.add_asset('table', table, table_transform)
+        scene.add_asset('franka', franka, franka_transform, collision_filter=1) # avoid self-collision
     scene.setup_all_envs(setup)
 
     def custom_draws(scene):
         draw_transforms(scene, scene.env_idxs, [franka_transform], length=0.2)
 
-    policy = RandomDeltaJointPolicy(franka, 'franka0')
+    policy = RandomDeltaJointPolicy(franka, 'franka')
     scene.run(policy=policy, custom_draws=custom_draws)

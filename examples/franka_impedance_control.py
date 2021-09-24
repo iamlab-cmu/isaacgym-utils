@@ -21,7 +21,7 @@ if __name__ == "__main__":
     franka_name = 'franka'
 
     def setup(scene, _):
-        scene.add_asset(franka_name, franka, franka_transform, collision_filter=2) # avoid self-collision
+        scene.add_asset(franka_name, franka, franka_transform, collision_filter=1) # avoid self-collision
     scene.setup_all_envs(setup)
 
     def custom_draws(scene):

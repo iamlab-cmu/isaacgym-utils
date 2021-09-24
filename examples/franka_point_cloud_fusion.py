@@ -86,8 +86,8 @@ if __name__ == "__main__":
     ]
     
     def setup(scene, _):
-        scene.add_asset('table0', table, table_transform)
-        scene.add_asset('franka0', franka, franka_transform, collision_filter=2) # avoid self-collision
+        scene.add_asset('table', table, table_transform)
+        scene.add_asset('franka', franka, franka_transform, collision_filter=1) # avoid self-collision
 
         scene.add_standalone_camera(cam_names[0], cam, cam_transforms[0])
         scene.add_standalone_camera(cam_names[1], cam, cam_transforms[1])

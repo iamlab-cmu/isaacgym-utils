@@ -18,7 +18,7 @@ if __name__ == "__main__":
 
     scene = GymScene(cfg['scene'])
     block = GymBoxAsset(scene, **cfg['block']['dims'],  shape_props=cfg['block']['shape_props'])
-    block_name = 'block0'
+    block_name = 'block'
     
     def setup(scene, _):
         scene.add_asset(block_name, block, gymapi.Transform(p=gymapi.Vec3(0, 0, cfg['block']['dims']['sz']/2)))

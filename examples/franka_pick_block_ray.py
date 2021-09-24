@@ -37,9 +37,9 @@ def construct_gym_scene():
     franka_transform = gymapi.Transform(p=gymapi.Vec3(0, 0, cfg['table']['dims']['sz'] + 0.01))
  
     def setup(scene, _):
-        scene.add_asset('table0', table, table_transform)
-        scene.add_asset('franka0', franka, franka_transform, collision_filter=2)
-        scene.add_asset('block0', block, gymapi.Transform())
+        scene.add_asset('table', table, table_transform)
+        scene.add_asset('franka', franka, franka_transform, collision_filter=1)
+        scene.add_asset('block', block, gymapi.Transform())
     scene.setup_all_envs(setup)
 
     return scene, table, franka, block
@@ -50,18 +50,18 @@ def run_grasp_block_policy(block_poses):
 
     def custom_draws(scene):
         for env_idx in scene.env_idxs:
-            ee_transform = franka.get_ee_transform(env_idx  , 'franka0')
-            desired_ee_transform = franka.get_desired_ee_transform(env_idx, 'franka0')
+            ee_transform = franka.get_ee_transform(env_idx  , 'franka')
+            desired_ee_transform = franka.get_desired_ee_transform(env_idx, 'franka')
 
             transforms = [ee_transform, desired_ee_transform]
 
             draw_transforms(scene, [env_idx], transforms)
 
-    policy = GraspBlockPolicy(franka, 'franka0', block, 'block0')
+    policy = GraspBlockPolicy(franka, 'franka', block, 'block')
 
     # set block poses
     for env_idx in scene.env_idxs:
-        block.set_rb_rigid_transforms(env_idx, 'block0', [block_poses[env_idx]])
+        block.set_rb_rigid_transforms(env_idx, 'block', [block_poses[env_idx]])
 
     policy.reset()
     scene.run(time_horizon=policy.time_horizon, policy=policy, custom_draws=custom_draws)
