@@ -39,7 +39,7 @@ class GymScene:
         self._env_upper = gymapi.Vec3(cfg['es'], cfg['es'], cfg['es'])
         self._env_num_per_row = int(np.sqrt(self._n_envs))
 
-        self.env_ptrs = [self._gym.create_env(self._sim, self._env_lower, self._env_upper, self._env_num_per_row)]
+        self.env_ptrs = []
 
         # track assets
         self._assets = {idx : {} for idx in self.env_idxs}
@@ -63,24 +63,23 @@ class GymScene:
 
         # current mutable env
         self._current_mutable_env_idx = 0
-
-    @property
-    def current_mutable_env_idx(self):
-        return self._current_mutable_env_idx
-
-    def increment_mutable_env_idx(self):
-        if self._current_mutable_env_idx < self.n_envs - 1:
-            self._current_mutable_env_idx += 1
-            self.env_ptrs.append(self._gym.create_env(self._sim, self._env_lower, self._env_upper, self._env_num_per_row))
-        else:
-            raise ValueError('Cannot increment mutable env idx beyond n_envs specified in scene cfg!')
+        self._has_ran_setup = False
 
     def setup_all_envs(self, setup):
-        while True:
-            setup(self, self.current_mutable_env_idx)
-            if self.current_mutable_env_idx == self.n_envs - 1:
-                break
-            self.increment_mutable_env_idx()
+        assert not self._has_ran_setup
+        
+        while self._current_mutable_env_idx < self.n_envs:
+            env_ptr = self._gym.create_env(self._sim, self._env_lower, self._env_upper, self._env_num_per_row)
+            self.env_ptrs.append(env_ptr)
+            
+            setup(self, self._current_mutable_env_idx)
+
+            self._current_mutable_env_idx += 1
+            
+        if self._gym.get_sim_params(self._sim).use_gpu_pipeline:
+            self._gym.prepare_sim(self._sim)
+        
+        self._has_ran_setup = True
 
     @property
     def dt(self):
@@ -121,7 +120,9 @@ class GymScene:
         return self._cts
 
     def add_standalone_camera(self, name, camera, transform):
-        env_idx = self.current_mutable_env_idx
+        assert not self._has_ran_setup
+
+        env_idx = self._current_mutable_env_idx
         if name in self.ch_map[env_idx]:
             raise ValueError('Camera {} has already been added to env {}!'.format(name, env_idx))
         env_ptr = self.env_ptrs[env_idx]
@@ -135,6 +136,8 @@ class GymScene:
         self.ch_map[env_idx][name] = ch
 
     def attach_camera(self, name, camera, actor_name, rb_name, offset_transform=None, follow_position_only=False):
+        assert not self._has_ran_setup
+
         if offset_transform is None:
             offset_tform_gym = gymapi.Transform()
         else:
@@ -143,7 +146,7 @@ class GymScene:
         # convert to the "gym" frame from the "optical" or "real" camera convention
         offset_tform_gym.r = offset_tform_gym.r * quat_real_to_gym_cam
 
-        env_idx = self.current_mutable_env_idx
+        env_idx = self._current_mutable_env_idx
         if name in self.ch_map[env_idx]:
             raise ValueError('Camera {} has already been added to env {}!'.format(name, env_idx))
         env_ptr = self.env_ptrs[env_idx]
@@ -166,7 +169,9 @@ class GymScene:
         return self._assets[env_idx][name]
 
     def add_asset(self, name, asset, poses, collision_filter=0):
-        env_idx = self.current_mutable_env_idx
+        assert not self._has_ran_setup
+
+        env_idx = self._current_mutable_env_idx
         env_ptr = self.env_ptrs[env_idx]
 
         if name in self._assets[env_idx]:
