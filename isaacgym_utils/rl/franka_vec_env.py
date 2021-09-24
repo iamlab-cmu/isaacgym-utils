@@ -3,7 +3,7 @@ import quaternion
 
 from isaacgym import gymapi
 from isaacgym_utils.assets import GymFranka, GymBoxAsset, GymURDFAsset
-from isaacgym_utils.math_utils import np_to_quat, np_to_vec3, transform_to_np_rpy, rpy_to_quat, transform_to_np
+from isaacgym_utils.math_utils import np_to_vec3, rpy_to_quat, transform_to_np
 from isaacgym_utils.ctrl_utils import ForcePositionController, MovingMedianFilter
 
 from gym.spaces import Box
