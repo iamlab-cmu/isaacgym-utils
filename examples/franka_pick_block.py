@@ -6,7 +6,7 @@ from autolab_core import YamlConfig, RigidTransform
 from isaacgym import gymapi
 from isaacgym_utils.scene import GymScene
 from isaacgym_utils.assets import GymFranka, GymBoxAsset
-from isaacgym_utils.camera import GymCamera, CameraZMQPublisher
+from isaacgym_utils.camera import GymCamera
 from isaacgym_utils.math_utils import RigidTransform_to_transform
 from isaacgym_utils.policy import GraspBlockPolicy
 from isaacgym_utils.draw import draw_transforms, draw_contacts, draw_camera
@@ -42,7 +42,6 @@ if __name__ == "__main__":
         translation=np.array([-0.083270, -0.046490, 0])
     ))
     cam_name = 'hand_cam0'
-    cam_pub = CameraZMQPublisher()
 
     def setup(scene, _):
         scene.add_asset(table_name, table, table_transform)
@@ -61,12 +60,6 @@ if __name__ == "__main__":
             draw_camera(scene, [env_idx], cam_transform, length=0.04)
         draw_contacts(scene, scene.env_idxs)
 
-    def cb(scene, _, __):
-        env_idx = 0
-        scene.render_cameras()
-        frames = cam.frames(env_idx, cam_name)
-        cam_pub.pub(frames['color'], frames['depth'], frames['seg'])
-
     policy = GraspBlockPolicy(franka, franka_name, block, block_name)
 
     while True:
@@ -82,4 +75,4 @@ if __name__ == "__main__":
             block.set_rb_transforms(env_idx, block_name, [block_transforms[env_idx]])
 
         policy.reset()
-        scene.run(time_horizon=policy.time_horizon, policy=policy, custom_draws=custom_draws, cb=cb)
+        scene.run(time_horizon=policy.time_horizon, policy=policy, custom_draws=custom_draws)

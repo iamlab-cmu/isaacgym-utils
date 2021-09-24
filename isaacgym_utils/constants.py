@@ -1,20 +1,25 @@
 import numpy as np
 import pkg_resources
 from pathlib import Path
+
 import isaacgym
+from isaacgym import gymapi
+
 import isaacgym_utils
 
-from isaacgym import gymapi
 
 isaacgym_PATH = Path(isaacgym.__file__).parent.parent
 isaacgym_ASSETS_PATH = isaacgym_PATH.parent / 'assets'
 
+
 isaacgym_utils_PATH = Path(isaacgym_utils.__file__).parent.parent
 isaacgym_utils_ASSETS_PATH = isaacgym_utils_PATH / 'assets'
+
 
 isaacgym_VERSION = pkg_resources.working_set.find(
     pkg_resources.Requirement('isaacgym')
     ).version
+
 
 # This is to convert between canonical/real/optical cam frame and gym cam frame
 # Real cam frame is (z forward, x right, y down)

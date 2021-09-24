@@ -1,12 +1,8 @@
 from copy import deepcopy
-from time import sleep
-from multiprocessing import Queue, Process
-from queue import Empty
 import quaternion
 
 import numpy as np
-from simple_zmq import SimpleZMQPublisher
-from autolab_core import CameraIntrinsics, ColorImage, DepthImage, SegmentationImage, NormalCloudImage, RigidTransform
+from autolab_core import CameraIntrinsics, ColorImage, DepthImage, SegmentationImage, NormalCloudImage
 
 from isaacgym import gymapi
 from .math_utils import transform_to_RigidTransform, vec3_to_np, np_quat_to_quat
@@ -130,11 +126,11 @@ def _process_gym_depth(raw_depth, flip=True):
     return raw_depth * (-1 if flip else 1)
 
 
-def _make_normal_map(depth, intr):
+def _make_normal_map(depth, intr, inf_depth=100):
     # from https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/ismar2011.pdf
     depth_data = depth.data.copy()
     inf_px_mask = np.isinf(depth_data)
-    depth_data[inf_px_mask] = 100
+    depth_data[inf_px_mask] = inf_depth
     depth = DepthImage(depth_data, frame=depth.frame)
 
     pts = intr.deproject_to_image(depth).data
@@ -151,51 +147,3 @@ def _make_normal_map(depth, intr):
     normal[inf_px_mask] = 0
 
     return normal
-
-
-class CameraZMQPublisher:
-
-    def __init__(self, topic='gym_cameras', ip='127.0.0.1', port='5555'):
-        self._pub = SimpleZMQPublisherAsync(ip, port, topic)
-        self._pub.start()
-
-    def pub(self, color, depth, seg):
-        camera_data = {
-            'color': color.data,
-            'depth': depth.data,
-            'seg': seg.data
-        }
-
-        self._pub.push(camera_data)
-
-
-class SimpleZMQPublisherAsync(Process):
-
-    def __init__(self, ip, port, topic):
-        super().__init__()
-        self._ip = ip
-        self._port = port
-        self._topic = topic
-
-        self._data_q = Queue(maxsize=1)
-
-    def run(self):
-        pub = SimpleZMQPublisher(self._ip, self._port, self._topic)
-
-        data = None
-        while True:
-            try:
-                data = self._data_q.get_nowait()
-            except Empty:
-                pass
-
-            if data is not None:
-                pub.push(data)
-            sleep(1e-3)
-
-    def push(self, data):
-        try:
-            self._data_q.get_nowait()
-        except Empty:
-            pass
-        self._data_q.put(data)
