@@ -84,6 +84,7 @@ See `GymFrankaBlockVecEnv._setup_single_env_gen` in `isaacgym_utils/rl/franka_ve
 ## Tensor API
 
 Currently this library does not expose IsaacGym's Tensor API features.
+However, they can still be accessed by directly using IsaacGym's `gym` and `sim` interfaces, which can be obtained from `GymScene`.
 
 ## Citation
 
