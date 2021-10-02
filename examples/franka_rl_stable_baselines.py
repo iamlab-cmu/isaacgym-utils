@@ -21,9 +21,9 @@ if __name__ == "__main__":
     vec_env = GymFrankaBlockVecEnvStableBaselines(cfg)
 
     def custom_draws(scene):
-        franka = scene.get_asset('franka0')
+        franka = scene.get_asset('franka')
         for env_idx in scene.env_idxs:
-            ee_transform = franka.get_ee_transform(env_idx, 'franka0')
+            ee_transform = franka.get_ee_transform(env_idx, 'franka')
             draw_transforms(scene, [env_idx], [ee_transform])
 
     def learn_cb(local_vars, global_vars):        

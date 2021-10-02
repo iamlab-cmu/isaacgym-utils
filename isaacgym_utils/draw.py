@@ -2,6 +2,7 @@ import numpy as np
 from isaacgym import gymapi
 from isaacgym.gymutil import LineGeometry, AxesGeometry, WireframeSphereGeometry, WireframeBoxGeometry, draw_lines
 
+
 force_vector_color = gymapi.Vec3(0.7, 0.2, 0.15)
 contact_draw_scale = 0.01
 def draw_contacts(scene, env_idxs):
