@@ -145,9 +145,14 @@ def min_jerk(xi, xf, t, T):
     return xi + (xf - xi) * (10 * r ** 3 - 15 * r ** 4 + 6 * r ** 5)
 
 
-def min_jerk_delta(xi, xf, t, T, dt):
+def min_jerk_delta(xi, xf, t, T):
     r = t/T
-    return (xf - xi) * (30 * r ** 2 - 60 * r ** 3 + 30 * r ** 4) * dt
+    return (xf - xi) * (30 * r ** 2 - 60 * r ** 3 + 30 * r ** 4)
+
+
+def min_jerk_v(v_max, t, T):
+    r = t/T
+    return 8 / 15 * v_max * (30 * r ** 2 - 60 * r ** 3 + 30 * r ** 4)
 
 
 def slerp_quat(q0, q1, t, T=1):
