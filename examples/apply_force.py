@@ -31,7 +31,7 @@ if __name__ == "__main__":
         draw_contacts(scene, scene.env_idxs)
 
     def policy(scene, env_idx, t_step, t_sim):
-        force = np_to_vec3(np.random.uniform([-5, -5, 0], [5, 5, 0]))
+        force = np_to_vec3([-np.sin(t_sim), 0, 0])
 
         block_transform = block.get_rb_transforms(env_idx, block_name)[0]
         loc = block_transform.p

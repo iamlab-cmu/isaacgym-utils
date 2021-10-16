@@ -2,7 +2,6 @@ scene:
   n_envs: 10
   es: 1
   gui: 1
-  cts: False
   cam:
     cam_pos: [1.2, 0, 1.2]
     look_at: [0.5, 0, 1]

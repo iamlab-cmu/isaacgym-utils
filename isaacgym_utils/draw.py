@@ -6,9 +6,10 @@ from isaacgym.gymutil import LineGeometry, AxesGeometry, WireframeSphereGeometry
 force_vector_color = gymapi.Vec3(0.7, 0.2, 0.15)
 contact_draw_scale = 0.01
 def draw_contacts(scene, env_idxs):
-    for env_idx in env_idxs:
-        env_ptr = scene.env_ptrs[env_idx]
-        scene.gym.draw_env_rigid_contacts(scene.viewer, env_ptr, force_vector_color, contact_draw_scale, False)
+    if not scene.use_gpu_pipeline:
+        for env_idx in env_idxs:
+            env_ptr = scene.env_ptrs[env_idx]
+            scene.gym.draw_env_rigid_contacts(scene.viewer, env_ptr, force_vector_color, contact_draw_scale, False)
 
 
 def draw_transforms(scene, env_idxs, transforms, length=0.05):

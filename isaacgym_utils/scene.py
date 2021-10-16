@@ -80,7 +80,8 @@ class GymScene:
         if self.use_gpu_pipeline:
             self.gym.prepare_sim(self.sim)
             self._root_tensor = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
-            self._rb_states = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))
+            self._rb_states_tensor = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))
+            self._net_cf_tensor = gymtorch.wrap_tensor(self.gym.acquire_net_contact_force_tensor(self.sim))
             self.step()
 
         self._has_ran_setup = True
@@ -100,9 +101,13 @@ class GymScene:
         return self._root_tensor
 
     @property
-    def rb_states(self):
+    def rb_states_tensor(self):
         assert self.use_gpu_pipeline
-        return self._rb_states
+        return self._rb_states_tensor
+
+    @property
+    def net_cf_tensor(self):
+        return self._net_cf_tensor
 
     @property
     def dt(self):
@@ -295,8 +300,9 @@ class GymScene:
 
         if self.use_gpu_pipeline:
             self.gym.refresh_actor_root_state_tensor(self.sim)
+            self.gym.refresh_net_contact_force_tensor(self.sim)
 
-        if self.is_cts_enabled:
+        if self.is_cts_enabled and not self.use_gpu_pipeline:
             self._propagate_asset_cts()
 
     def render(self, custom_draws=None):

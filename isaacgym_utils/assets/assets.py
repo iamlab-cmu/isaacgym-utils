@@ -190,13 +190,13 @@ class GymAsset(ABC):
         ah = self._scene.ah_map[env_idx][name]
 
         if self._scene.use_gpu_pipeline:
-            rb_states = self._scene.rb_states[[
+            rb_states_tensor = self._scene.rb_states_tensor[[
                 self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, rb_idx, gymapi.DOMAIN_SIM)
                 for rb_idx in range(self.rb_count)
             ]]
             # xyzw -> wxyz
-            rb_states[:, [3, 4, 5, 6]] = rb_states[:, [6, 3, 4, 5]]
-            return rb_states
+            rb_states_tensor[:, [3, 4, 5, 6]] = rb_states_tensor[:, [6, 3, 4, 5]]
+            return rb_states_tensor
         else:
             return self._scene.gym.get_actor_rigid_body_states(env_ptr, ah, gymapi.STATE_ALL)
         
@@ -322,21 +322,35 @@ class GymAsset(ABC):
         self.set_rb_transforms(env_idx, name, transforms)
 
     def get_rb_ct_forces(self, env_idx, name):
-        return self._all_cts_cache[self._sim_rb_idxs_map[env_idx][name]]
+        if self._scene.use_gpu_pipeline:
+            env_ptr = self._scene.env_ptrs[env_idx]
+            ah = self._scene.ah_map[env_idx][name]
+
+            return self._scene.net_cf_tensor[[
+                self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, rb_idx, gymapi.DOMAIN_SIM)
+                for rb_idx in range(self.rb_count)
+            ]]
+        else:
+            return self._all_cts_cache[self._sim_rb_idxs_map[env_idx][name]]
 
     def get_rb_ct_locs(self, env_idx, name):
+        assert not self._scene.use_gpu_pipeline
         return self._all_cts_loc_cache[self._sim_rb_idxs_map[env_idx][name]]
 
     def get_rb_ct_forces_parts(self, env_idx, name):
+        assert not self._scene.use_gpu_pipeline
         return self._all_cts_cache_raw[self._sim_rb_idxs_map[env_idx][name], :, 0]
 
     def get_rb_ct_locs_parts(self, env_idx, name):
+        assert not self._scene.use_gpu_pipeline
         return self._all_cts_cache_raw[self._sim_rb_idxs_map[env_idx][name], :, 1]
 
     def get_rb_n_cts(self, env_idx, name):
+        assert not self._scene.use_gpu_pipeline
         return self._all_n_cts_cache[self._sim_rb_idxs_map[env_idx][name]]
 
     def get_rb_in_ct(self, env_idx, source_asset_name, target_asset, target_asset_names, source_rb_idx=0, target_rb_idx=0):
+        assert not self._scene.use_gpu_pipeline
         source_rb_idx = self._sim_rb_idxs_map[env_idx][source_asset_name][source_rb_idx]
         target_rb_idxs = [target_asset._sim_rb_idxs_map[env_idx][target_asset_name][target_rb_idx] for target_asset_name in target_asset_names]
 
@@ -347,7 +361,26 @@ class GymAsset(ABC):
         ah = self._scene.ah_map[env_idx][name]
         bh = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self.rb_names_map[rb_name], gymapi.DOMAIN_ENV)
 
-        self._scene.gym.apply_body_force(env_ptr, bh, force, loc)
+        if self._scene.use_gpu_pipeline:
+            n_rbs_sim = self._scene.gym.get_sim_rigid_body_count(self._scene.sim)
+            assert n_rbs_sim % self._scene.n_envs == 0
+            n_rbs_env = n_rbs_sim // self._scene.n_envs
+
+            forces = torch.zeros((self._scene.n_envs, n_rbs_env, 3), device=self._scene.gpu_device, dtype=torch.float)
+            locs = self._scene.rb_states_tensor[:, 0:3].view(self._scene.n_envs, n_rbs_env, 3)
+
+            for i, k in enumerate('xyz'):
+                forces[env_idx, bh, i] = getattr(force, k)
+                locs[env_idx, bh, i] = getattr(loc, k)
+
+            self._scene.gym.apply_rigid_body_force_at_pos_tensors(
+                self._scene.sim, 
+                gymtorch.unwrap_tensor(forces), 
+                gymtorch.unwrap_tensor(locs), 
+                gymapi.ENV_SPACE
+            )
+        else:
+            self._scene.gym.apply_body_force(env_ptr, bh, force, loc)
 
 
 class GymURDFAsset(GymAsset):
