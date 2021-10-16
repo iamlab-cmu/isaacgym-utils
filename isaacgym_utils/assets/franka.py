@@ -82,15 +82,10 @@ class GymFranka(GymURDFAsset):
         return self.get_joints(env_idx, name)[-1]
 
     def get_base_transform(self, env_idx, name):
-        env_ptr = self._scene.env_ptrs[env_idx]
-        bh = self._scene.gym.get_rigid_handle(env_ptr, name, 'panda_link0')
-        base_transform = self._scene.gym.get_rigid_transform(env_ptr, bh)
-        return base_transform
+        return self.get_rb_transform(env_idx, name, 'panda_link0')
 
     def get_ee_transform(self, env_idx, name, offset=True):
-        env_ptr = self._scene.env_ptrs[env_idx]
-        bh = self._scene.gym.get_rigid_handle(env_ptr, name, 'panda_hand')
-        ee_transform = self._scene.gym.get_rigid_transform(env_ptr, bh)
+        ee_transform = self.get_rb_transform(env_idx, name, 'panda_hand')
         if offset:
             ee_transform = ee_transform * self._gripper_offset * self._ee_tool_offset
         return ee_transform
@@ -100,11 +95,8 @@ class GymFranka(GymURDFAsset):
                                                 from_frame='panda_ee', to_frame='panda_link0')
 
     def get_finger_transforms(self, env_idx, name, offset=True):
-        env_ptr = self._scene.env_ptrs[env_idx]
-        bh_lf = self._scene.gym.get_rigid_handle(env_ptr, name, self._left_finger_rb_name)
-        bh_rf = self._scene.gym.get_rigid_handle(env_ptr, name, self._right_finger_rb_name)
-        lf_transform = self._scene.gym.get_rigid_transform(env_ptr, bh_lf)
-        rf_transform = self._scene.gym.get_rigid_transform(env_ptr, bh_rf)
+        lf_transform = self.get_rb_transform(env_idx, name, self._left_finger_rb_name)
+        rf_transform = self.get_rb_transform(env_idx, name, self._right_finger_rb_name)
 
         if offset:
             lf_transform = lf_transform * self._finger_offset
@@ -252,14 +244,10 @@ class GymFranka(GymURDFAsset):
         self.apply_actor_dof_efforts(env_idx, name, tau)
 
     def get_links_transforms(self, env_idx, name):
-        transforms = []
-        env_ptr = self._scene.env_ptrs[env_idx]
-        for i in range(1, 8):
-            link_name = 'panda_link{}'.format(i)
-            bh = self._scene.gym.get_rigid_handle(env_ptr, name, link_name)
-            transforms.append(self._scene.gym.get_rigid_transform(env_ptr, bh) )
-
-        return transforms
+        return [
+            self.get_rb_transform(env_idx, name, f'panda_link{i}')
+            for i in range(1, 8)
+        ]
 
     def get_links_rigid_transforms(self, env_idx, name):
         transforms = self.get_links_transforms(env_idx, name)

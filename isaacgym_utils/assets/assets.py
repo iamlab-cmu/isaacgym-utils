@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from isaacgym import gymapi, gymtorch
+from isaacgym import gymapi
 from isaacgym_utils.math_utils import np_to_vec3, np_to_quat, transform_to_RigidTransform, RigidTransform_to_transform
 
 
@@ -276,6 +276,21 @@ class GymAsset(ABC):
             transforms.append(gymapi.Transform(p=np_to_vec3(translation), r=np_to_quat(quaternion)))
 
         return transforms
+
+    def get_rb_transform(self, env_idx, name, rb_name):
+        env_ptr = self._scene.env_ptrs[env_idx]
+
+        if self._scene.use_gpu_pipeline:
+            ah = self._scene.ah_map[env_idx][name]
+            rb_idx = self.rb_names_map[rb_name]
+            rb_tensor_idx = self._scene.gym.get_actor_rigid_body_index(
+                env_ptr, ah, rb_idx, gymapi.DOMAIN_SIM
+            )
+            rb_state = self._scene.tensors['rb_states'][rb_tensor_idx]
+            return gymapi.Transform(p=np_to_vec3(rb_state[:3]), r=np_to_quat(rb_state[3:7]))
+        else:
+            bh = self._scene.gym.get_rigid_handle(env_ptr, name, rb_name)
+            return self._scene.gym.get_rigid_transform(env_ptr, bh)
 
     def set_rb_transforms(self, env_idx, name, transforms):
         rb_states = self.get_rb_states(env_idx, name)
