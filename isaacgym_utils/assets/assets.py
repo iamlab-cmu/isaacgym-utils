@@ -194,7 +194,7 @@ class GymAsset(ABC):
                     self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, rb_idx, gymapi.DOMAIN_SIM)
                     for rb_idx in range(self.rb_count)
                 ]
-            rb_states_tensor = self._scene.rb_states_tensor[rb_states_tensor_idxs].clone()
+            rb_states_tensor = self._scene.tensors['rb_states'][rb_states_tensor_idxs].clone()
             # xyzw -> wxyz
             rb_states_tensor[:, [3, 4, 5, 6]] = rb_states_tensor[:, [6, 3, 4, 5]]
             return rb_states_tensor
@@ -212,8 +212,8 @@ class GymAsset(ABC):
             root_state[[3, 4, 5, 6]] = root_state[[4, 5, 6, 3]]
 
             actor_idx = self._scene.gym.get_actor_index(env_ptr, ah, gymapi.DOMAIN_SIM)
-            self._scene.root_tensor[actor_idx] = root_state
-            self._scene._register_actor_tensor_to_update(env_idx, name, 'root_tensor')
+            self._scene.tensors['root'][actor_idx] = root_state
+            self._scene._register_actor_tensor_to_update(env_idx, name, 'root')
             return True
         else:
 
@@ -322,7 +322,7 @@ class GymAsset(ABC):
             env_ptr = self._scene.env_ptrs[env_idx]
             ah = self._scene.ah_map[env_idx][name]
 
-            return self._scene.net_cf_tensor[[
+            return self._scene.tensors['net_cf'][[
                 self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, rb_idx, gymapi.DOMAIN_SIM)
                 for rb_idx in range(self.rb_count)
             ]]
@@ -363,7 +363,7 @@ class GymAsset(ABC):
             n_rbs_env = n_rbs_sim // self._scene.n_envs
 
             forces = torch.zeros((self._scene.n_envs, n_rbs_env, 3), device=self._scene.gpu_device, dtype=torch.float)
-            locs = self._scene.rb_states_tensor[:, 0:3].view(self._scene.n_envs, n_rbs_env, 3)
+            locs = self._scene.tensors['rb_states'][:, 0:3].view(self._scene.n_envs, n_rbs_env, 3)
 
             for i, k in enumerate('xyz'):
                 forces[env_idx, bh, i] = getattr(force, k)
@@ -406,7 +406,7 @@ class GymURDFAsset(GymAsset):
                     self._scene.gym.get_actor_dof_index(env_ptr, ah, dof_idx, gymapi.DOMAIN_SIM)
                     for dof_idx in range(self.n_dofs)
                 ]
-            return self._scene.dof_states_tensor[dof_states_tensor_idxs].clone()
+            return self._scene.tensors['dof_states'][dof_states_tensor_idxs].clone()
         else:
             return self._scene.gym.get_actor_dof_states(env_ptr, ah, gymapi.STATE_ALL).copy()
 
@@ -419,8 +419,8 @@ class GymURDFAsset(GymAsset):
                     self._scene.gym.get_actor_dof_index(env_ptr, ah, dof_idx, gymapi.DOMAIN_SIM)
                     for dof_idx in range(self.n_dofs)
                 ]
-            self._scene.dof_states_tensor[dof_states_tensor_idxs] = dof_states
-            self._scene._register_actor_tensor_to_update(env_idx, name, 'dof_states_tensor')
+            self._scene.tensors['dof_states'][dof_states_tensor_idxs] = dof_states
+            self._scene._register_actor_tensor_to_update(env_idx, name, 'dof_states')
             return True
         else:
             return self._scene.gym.set_actor_dof_states(env_ptr, ah, dof_states, gymapi.STATE_ALL)
@@ -487,10 +487,10 @@ class GymURDFAsset(GymAsset):
                     self._scene.gym.get_actor_dof_index(env_ptr, ah, dof_idx, gymapi.DOMAIN_SIM)
                     for dof_idx in range(self.n_dofs)
                 ]
-            self._scene.dof_targets_tensor[dof_targets_tensor_idxs] = torch.from_numpy(joints)\
-                                                        .type_as(self._scene.dof_targets_tensor)\
+            self._scene.tensors['dof_targets'][dof_targets_tensor_idxs] = torch.from_numpy(joints)\
+                                                        .type_as(self._scene.tensors['dof_targets'])\
                                                         .to(self._scene.gpu_device)
-            self._scene._register_actor_tensor_to_update(env_idx, name, 'dof_targets_tensor')
+            self._scene._register_actor_tensor_to_update(env_idx, name, 'dof_targets')
             return True
         else:
             return self._scene.gym.set_actor_dof_position_targets(env_ptr, ah, joints.astype('float32'))
@@ -509,8 +509,8 @@ class GymURDFAsset(GymAsset):
             actor_idx = self._scene.gym.get_actor_index(env_ptr, ah, gymapi.DOMAIN_SIM)
             actor_idxs_th = torch.tensor([actor_idx], device=self._scene.gpu_device)
 
-            dof_tau_tensor = torch.zeros(len(self._scene.dof_states_tensor))\
-                                    .type_as(self._scene.dof_states_tensor)\
+            dof_tau_tensor = torch.zeros(len(self._scene.tensors['dof_states']))\
+                                    .type_as(self._scene.tensors['dof_states'])\
                                     .to(self._scene.gpu_device)
             dof_states_tensor_idxs = [
                     self._scene.gym.get_actor_dof_index(env_ptr, ah, dof_idx, gymapi.DOMAIN_SIM)

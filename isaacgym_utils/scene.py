@@ -80,16 +80,22 @@ class GymScene:
             
         if self.use_gpu_pipeline:
             self.gym.prepare_sim(self.sim)
-            self._root_tensor = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
-            self._rb_states_tensor = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))
-            self._net_cf_tensor = gymtorch.wrap_tensor(self.gym.acquire_net_contact_force_tensor(self.sim))
-            self._dof_states_tensor = gymtorch.wrap_tensor(self.gym.acquire_dof_state_tensor(self.sim))
-            self._dof_targets_tensor = self._dof_states_tensor[:, 0].clone()
+            self._tensors = {
+                'root': gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim)),
+                'rb_states': gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim)),
+                'net_cf': gymtorch.wrap_tensor(self.gym.acquire_net_contact_force_tensor(self.sim)),
+                'dof_states': gymtorch.wrap_tensor(self.gym.acquire_dof_state_tensor(self.sim))
+            }
+            self._tensors.update({
+                'dof_targets': self._tensors['dof_states'][:, 0].clone(),
+                'dof_actuation_force': self._tensors['dof_states'][:, 0].clone(),
+            })
 
             self._actor_idxs_to_update = {
-                'root_tensor': [],
-                'dof_states_tensor': [],
-                'dof_targets_tensor': []
+                'root': [],
+                'dof_states': [],
+                'dof_targets': [],
+                'dof_actuation_force': []
             }
             self.step()
 
@@ -106,32 +112,12 @@ class GymScene:
     @property
     def gpu_device(self):
         assert self.use_gpu_pipeline
-        return self._root_tensor.device
+        return self.tensors['root'].device
 
     @property
-    def root_tensor(self):
+    def tensors(self):
         assert self.use_gpu_pipeline
-        return self._root_tensor
-
-    @property
-    def rb_states_tensor(self):
-        assert self.use_gpu_pipeline
-        return self._rb_states_tensor
-
-    @property
-    def net_cf_tensor(self):
-        assert self.use_gpu_pipeline
-        return self._net_cf_tensor
-    
-    @property
-    def dof_states_tensor(self):
-        assert self.use_gpu_pipeline
-        return self._dof_states_tensor
-
-    @property
-    def dof_targets_tensor(self):
-        assert self.use_gpu_pipeline
-        return self._dof_targets_tensor
+        return self._tensors
 
     @property
     def dt(self):
@@ -325,31 +311,31 @@ class GymScene:
 
     def step(self):
         if self.use_gpu_pipeline:
-            if len(self._actor_idxs_to_update['root_tensor']) > 0:
-                actor_idxs_th = torch.tensor(self._actor_idxs_to_update['root_tensor'], device=self.gpu_device)
+            if len(self._actor_idxs_to_update['root']) > 0:
+                actor_idxs_th = torch.tensor(self._actor_idxs_to_update['root'], device=self.gpu_device)
                 self.gym.set_actor_root_state_tensor_indexed(
                     self.sim, 
-                    gymtorch.unwrap_tensor(self.root_tensor), 
+                    gymtorch.unwrap_tensor(self.tensors['root']), 
                     gymtorch.unwrap_tensor(actor_idxs_th.int()),
-                    len(self._actor_idxs_to_update['root_tensor'])
+                    len(self._actor_idxs_to_update['root'])
                 )
 
-            if len(self._actor_idxs_to_update['dof_states_tensor']) > 0:
-                actor_idxs_th = torch.tensor(self._actor_idxs_to_update['dof_states_tensor'], device=self.gpu_device)
+            if len(self._actor_idxs_to_update['dof_states']) > 0:
+                actor_idxs_th = torch.tensor(self._actor_idxs_to_update['dof_states'], device=self.gpu_device)
                 self.gym.set_dof_state_tensor_indexed(
                     self.sim, 
-                    gymtorch.unwrap_tensor(self.dof_states_tensor), 
+                    gymtorch.unwrap_tensor(self.tensors['dof_states']), 
                     gymtorch.unwrap_tensor(actor_idxs_th.int()),
-                    len(self._actor_idxs_to_update['dof_states_tensor'])
+                    len(self._actor_idxs_to_update['dof_states'])
                 )
 
-            if len(self._actor_idxs_to_update['dof_targets_tensor']) > 0:
-                actor_idxs_th = torch.tensor(self._actor_idxs_to_update['dof_targets_tensor'], device=self.gpu_device)
+            if len(self._actor_idxs_to_update['dof_targets']) > 0:
+                actor_idxs_th = torch.tensor(self._actor_idxs_to_update['dof_targets'], device=self.gpu_device)
                 self.gym.set_dof_position_target_tensor_indexed(
                     self.sim, 
-                    gymtorch.unwrap_tensor(self.dof_targets_tensor), 
+                    gymtorch.unwrap_tensor(self.tensors['dof_targets']), 
                     gymtorch.unwrap_tensor(actor_idxs_th.int()),
-                    len(self._actor_idxs_to_update['dof_targets_tensor'])
+                    len(self._actor_idxs_to_update['dof_targets'])
                 )
 
             # set dof torques
