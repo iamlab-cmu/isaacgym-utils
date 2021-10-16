@@ -82,7 +82,12 @@ class GymScene:
             self._root_tensor = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
             self._rb_states_tensor = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))
             self._net_cf_tensor = gymtorch.wrap_tensor(self.gym.acquire_net_contact_force_tensor(self.sim))
+            self._dof_states_tensor = gymtorch.wrap_tensor(self.gym.acquire_dof_state_tensor(self.sim))
             self.step()
+
+        for env_idx, assets in self._assets.items():
+            for name, asset in assets.items():
+                asset._post_create_actor(env_idx, name)
 
         self._has_ran_setup = True
 
@@ -107,7 +112,13 @@ class GymScene:
 
     @property
     def net_cf_tensor(self):
+        assert self.use_gpu_pipeline
         return self._net_cf_tensor
+    
+    @property
+    def dof_states_tensor(self):
+        assert self.use_gpu_pipeline
+        return self._dof_states_tensor
 
     @property
     def dt(self):
@@ -214,7 +225,6 @@ class GymScene:
         ah = self.gym.create_actor(env_ptr, asset.GLOBAL_ASSET_CACHE[asset.asset_uid], pose, name, env_idx, collision_filter, self._seg_ids[env_idx])
         self.ah_map[env_idx][name] = ah
 
-        asset._post_create_actor(env_idx, name)
         asset.set_shape_props(env_idx, name)
         asset.set_rb_props(env_idx, name)
         asset.set_dof_props(env_idx, name)
@@ -301,6 +311,7 @@ class GymScene:
         if self.use_gpu_pipeline:
             self.gym.refresh_actor_root_state_tensor(self.sim)
             self.gym.refresh_net_contact_force_tensor(self.sim)
+            self.gym.refresh_dof_state_tensor(self.sim)
 
         if self.is_cts_enabled and not self.use_gpu_pipeline:
             self._propagate_asset_cts()
