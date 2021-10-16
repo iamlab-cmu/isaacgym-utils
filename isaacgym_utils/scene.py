@@ -329,6 +329,15 @@ class GymScene:
                     len(self._actor_idxs_to_update['dof_states'])
                 )
 
+            if len(self._actor_idxs_to_update['dof_actuation_force']) > 0:
+                actor_idxs_th = torch.tensor(self._actor_idxs_to_update['dof_actuation_force'], device=self.gpu_device)
+                self.gym.set_dof_actuation_force_tensor_indexed(
+                    self.sim, 
+                    gymtorch.unwrap_tensor(self.tensors['dof_actuation_force']), 
+                    gymtorch.unwrap_tensor(actor_idxs_th.int()),
+                    len(self._actor_idxs_to_update['dof_actuation_force'])
+                )
+
             if len(self._actor_idxs_to_update['dof_targets']) > 0:
                 actor_idxs_th = torch.tensor(self._actor_idxs_to_update['dof_targets'], device=self.gpu_device)
                 self.gym.set_dof_position_target_tensor_indexed(
@@ -337,8 +346,6 @@ class GymScene:
                     gymtorch.unwrap_tensor(actor_idxs_th.int()),
                     len(self._actor_idxs_to_update['dof_targets'])
                 )
-
-            # set dof torques
 
             # set forces
 
