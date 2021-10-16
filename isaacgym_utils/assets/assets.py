@@ -213,7 +213,7 @@ class GymAsset(ABC):
 
             actor_idx = self._scene.gym.get_actor_index(env_ptr, ah, gymapi.DOMAIN_SIM)
             self._scene.tensors['root'][actor_idx] = root_state
-            self._scene._register_actor_tensor_to_update(env_idx, name, 'root')
+            self._scene.register_actor_tensor_to_update(env_idx, name, 'root')
             return True
         else:
 
@@ -376,7 +376,7 @@ class GymAsset(ABC):
             for i, k in enumerate('xyz'):
                 self._scene.tensors['forces'][env_idx, bh, i] = getattr(force, k)
                 self._scene.tensors['forces_pos'][env_idx, bh, i] = getattr(loc, k)
-            self._scene._register_actor_tensor_to_update(env_idx, name, 'forces')
+            self._scene.register_actor_tensor_to_update(env_idx, name, 'forces')
             return True
         else:
             return self._scene.gym.apply_body_force(env_ptr, bh, force, loc)
@@ -423,7 +423,7 @@ class GymURDFAsset(GymAsset):
                     for dof_idx in range(self.n_dofs)
                 ]
             self._scene.tensors['dof_states'][dof_states_tensor_idxs] = dof_states
-            self._scene._register_actor_tensor_to_update(env_idx, name, 'dof_states')
+            self._scene.register_actor_tensor_to_update(env_idx, name, 'dof_states')
             return True
         else:
             return self._scene.gym.set_actor_dof_states(env_ptr, ah, dof_states, gymapi.STATE_ALL)
@@ -493,7 +493,7 @@ class GymURDFAsset(GymAsset):
             self._scene.tensors['dof_targets'][dof_targets_tensor_idxs] = torch.from_numpy(joints)\
                                                         .type_as(self._scene.tensors['dof_targets'])\
                                                         .to(self._scene.gpu_device)
-            self._scene._register_actor_tensor_to_update(env_idx, name, 'dof_targets')
+            self._scene.register_actor_tensor_to_update(env_idx, name, 'dof_targets')
             return True
         else:
             return self._scene.gym.set_actor_dof_position_targets(env_ptr, ah, joints.astype('float32'))
@@ -517,7 +517,7 @@ class GymURDFAsset(GymAsset):
                                                         type_as(self._scene.tensors['dof_actuation_force'])\
                                                         .to(self._scene.gpu_device)
 
-            self._scene._register_actor_tensor_to_update(env_idx, name, 'dof_actuation_force')
+            self._scene.register_actor_tensor_to_update(env_idx, name, 'dof_actuation_force')
             return True
         else:
             return self._scene.gym.apply_actor_dof_efforts(env_ptr, ah, tau.astype('float32'))

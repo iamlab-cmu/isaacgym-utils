@@ -311,7 +311,7 @@ class GymScene:
                 self._all_cts_pairs_cache[all_cts['body0'][non_plane_ct_mask], all_cts['body1'][non_plane_ct_mask]] = True
                 self._all_cts_pairs_cache[all_cts['body1'][non_plane_ct_mask], all_cts['body0'][non_plane_ct_mask]] = True
 
-    def _register_actor_tensor_to_update(self, env_idx, name, tensor_name):
+    def register_actor_tensor_to_update(self, env_idx, name, tensor_name):
         env_ptr = self.env_ptrs[env_idx]
         ah = self.ah_map[env_idx][name]
         actor_idx = self.gym.get_actor_index(env_ptr, ah, gymapi.DOMAIN_SIM)

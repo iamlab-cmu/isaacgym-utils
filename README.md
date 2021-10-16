@@ -83,8 +83,20 @@ See `GymFrankaBlockVecEnv._setup_single_env_gen` in `isaacgym_utils/rl/franka_ve
 
 ## Tensor API
 
-Currently this library does not expose IsaacGym's Tensor API features.
-However, they can still be accessed by directly using IsaacGym's `gym` and `sim` interfaces, which can be obtained from `GymScene`.
+To use IsaacGym's Tensor API, set `scene->gym->use_gpu_pipeline: True` in the yaml configs.
+
+This switches `isaacgym-utils`' API to use the Tensor API backend, and you can access the tensors directly using `scene.tensors`.
+
+To directly write values into writable tensors (see IsaacGym docs for more details), instead of relying on `isaacgym-utils`' internal implementations, you should:
+1. Write to a tensor in `scene.tensors`
+2. Call `scene.register_actor_tensor_to_update` to ensure that the writes are committed during the next simulation step.
+
+## Things to Note
+
+* If using `physx` and not controlling the an actor with joint PD control, you must set `dof_props->stiffness` to have all `0`'s, otherwise IsaacGym's internal PD control is still in effect, even if you're sending torque commands or using attractors. This is not a problem when using the `flex` backend.
+* We only support `scene->gym->up_axis: z` - setting the `up_axis` to `x` or `y` will give unexpected behaviors for camera rendering. This is a bug internal to IsaacGym.
+* `flex` w/ backend supports getting point-wise contacts. `physx` backend w/ `use_gpu_pipeline: True` and `use_gpu: True` only supports getting body-wise contacts (summing up all point-wise contacts). Other `physx` configurations do not support getting any contact forces.
+* `flex` does not support `use_gpu_pipeline: True`
 
 ## Citation
 
