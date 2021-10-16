@@ -421,22 +421,13 @@ class GymURDFAsset(GymAsset):
         ah = self._scene.ah_map[env_idx][name]
 
         if self._scene.use_gpu_pipeline:
-            actor_idx = self._scene.gym.get_actor_index(env_ptr, ah, gymapi.DOMAIN_SIM)
-            actor_idxs_th = torch.tensor([actor_idx], device=self._scene.gpu_device)
-
             dof_states_tensor_idxs = [
                     self._scene.gym.get_actor_dof_index(env_ptr, ah, dof_idx, gymapi.DOMAIN_SIM)
                     for dof_idx in range(self.n_dofs)
                 ]
-
             self._scene.dof_states_tensor[dof_states_tensor_idxs] = dof_states
-
-            return self._scene.gym.set_dof_state_tensor_indexed(
-                self._scene.sim, 
-                gymtorch.unwrap_tensor(self._scene.dof_states_tensor), 
-                gymtorch.unwrap_tensor(actor_idxs_th.int()),
-                1
-            )
+            self._scene._register_actor_to_update(env_idx, name, 'dof_states_tensor')
+            return True
         else:
             return self._scene.gym.set_actor_dof_states(env_ptr, ah, dof_states, gymapi.STATE_ALL)
 
@@ -498,24 +489,15 @@ class GymURDFAsset(GymAsset):
         ah = self._scene.ah_map[env_idx][name]
 
         if self._scene.use_gpu_pipeline:
-            actor_idx = self._scene.gym.get_actor_index(env_ptr, ah, gymapi.DOMAIN_SIM)
-            actor_idxs_th = torch.tensor([actor_idx], device=self._scene.gpu_device)
-
-            dof_target_tensor = self._scene.dof_states_tensor[:, 0].clone()
-            dof_states_tensor_idxs = [
+            dof_targets_tensor_idxs = [
                     self._scene.gym.get_actor_dof_index(env_ptr, ah, dof_idx, gymapi.DOMAIN_SIM)
                     for dof_idx in range(self.n_dofs)
                 ]
-            dof_target_tensor[dof_states_tensor_idxs] = torch.from_numpy(joints)\
-                                                        .type_as(dof_target_tensor)\
+            self._scene.dof_targets_tensor[dof_targets_tensor_idxs] = torch.from_numpy(joints)\
+                                                        .type_as(self._scene.dof_targets_tensor)\
                                                         .to(self._scene.gpu_device)
-
-            return self._scene.gym.set_dof_position_target_tensor_indexed(
-                self._scene.sim, 
-                gymtorch.unwrap_tensor(dof_target_tensor), 
-                gymtorch.unwrap_tensor(actor_idxs_th.int()),
-                1
-            )
+            self._scene._register_actor_to_update(env_idx, name, 'dof_targets_tensor')
+            return True
         else:
             return self._scene.gym.set_actor_dof_position_targets(env_ptr, ah, joints.astype('float32'))
 

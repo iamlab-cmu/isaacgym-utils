@@ -2,6 +2,7 @@ from copy import deepcopy
 import numpy as np
 from numba import jit
 from isaacgym import gymapi, gymtorch
+import torch
 
 from .math_utils import np_to_vec3
 from .constants import isaacgym_VERSION, quat_real_to_gym_cam
@@ -83,6 +84,13 @@ class GymScene:
             self._rb_states_tensor = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))
             self._net_cf_tensor = gymtorch.wrap_tensor(self.gym.acquire_net_contact_force_tensor(self.sim))
             self._dof_states_tensor = gymtorch.wrap_tensor(self.gym.acquire_dof_state_tensor(self.sim))
+            self._dof_targets_tensor = self._dof_states_tensor[:, 0].clone()
+
+            self._actor_idxs_to_update = {
+                'rb_states_tensor': [],
+                'dof_states_tensor': [],
+                'dof_targets_tensor': []
+            }
             self.step()
 
         for env_idx, assets in self._assets.items():
@@ -119,6 +127,11 @@ class GymScene:
     def dof_states_tensor(self):
         assert self.use_gpu_pipeline
         return self._dof_states_tensor
+
+    @property
+    def dof_targets_tensor(self):
+        assert self.use_gpu_pipeline
+        return self._dof_targets_tensor
 
     @property
     def dt(self):
@@ -304,7 +317,38 @@ class GymScene:
                 self._all_cts_pairs_cache[all_cts['body0'][non_plane_ct_mask], all_cts['body1'][non_plane_ct_mask]] = True
                 self._all_cts_pairs_cache[all_cts['body1'][non_plane_ct_mask], all_cts['body0'][non_plane_ct_mask]] = True
 
+    def _register_actor_to_update(self, env_idx, name, tensor_name):
+        env_ptr = self.env_ptrs[env_idx]
+        ah = self.ah_map[env_idx][name]
+        actor_idx = self.gym.get_actor_index(env_ptr, ah, gymapi.DOMAIN_SIM)
+        self._actor_idxs_to_update[tensor_name].append(actor_idx)
+
     def step(self):
+        if self.use_gpu_pipeline:
+            # set rb_state
+
+            if len(self._actor_idxs_to_update['dof_states_tensor']) > 0:
+                actor_idxs_th = torch.tensor(self._actor_idxs_to_update['dof_states_tensor'], device=self.gpu_device)
+                self.gym.set_dof_state_tensor_indexed(
+                    self.sim, 
+                    gymtorch.unwrap_tensor(self.dof_states_tensor), 
+                    gymtorch.unwrap_tensor(actor_idxs_th.int()),
+                    len(self._actor_idxs_to_update['dof_states_tensor'])
+                )
+
+            if len(self._actor_idxs_to_update['dof_targets_tensor']) > 0:
+                actor_idxs_th = torch.tensor(self._actor_idxs_to_update['dof_targets_tensor'], device=self.gpu_device)
+                self.gym.set_dof_position_target_tensor_indexed(
+                    self.sim, 
+                    gymtorch.unwrap_tensor(self.dof_targets_tensor), 
+                    gymtorch.unwrap_tensor(actor_idxs_th.int()),
+                    len(self._actor_idxs_to_update['dof_targets_tensor'])
+                )
+
+            # set dof torques
+
+            # set forces
+
         self.gym.simulate(self.sim)
         self.gym.fetch_results(self.sim, True)
 
@@ -312,6 +356,9 @@ class GymScene:
             self.gym.refresh_actor_root_state_tensor(self.sim)
             self.gym.refresh_net_contact_force_tensor(self.sim)
             self.gym.refresh_dof_state_tensor(self.sim)
+
+            for k in self._actor_idxs_to_update:
+                self._actor_idxs_to_update[k] = []
 
         if self.is_cts_enabled and not self.use_gpu_pipeline:
             self._propagate_asset_cts()
