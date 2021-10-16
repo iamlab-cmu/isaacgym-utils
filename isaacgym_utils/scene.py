@@ -79,6 +79,11 @@ class GymScene:
             self._current_mutable_env_idx += 1
             
         if self.use_gpu_pipeline:
+            n_rbs_sim = self.gym.get_sim_rigid_body_count(self.sim)
+            assert n_rbs_sim % self.n_envs == 0
+            n_rbs_env = n_rbs_sim // self.n_envs
+            n_dofs_sim = self.gym.get_sim_dof_count(self.sim)
+
             self.gym.prepare_sim(self.sim)
             self._tensors = {
                 'root': gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim)),
@@ -87,15 +92,18 @@ class GymScene:
                 'dof_states': gymtorch.wrap_tensor(self.gym.acquire_dof_state_tensor(self.sim))
             }
             self._tensors.update({
-                'dof_targets': self._tensors['dof_states'][:, 0].clone(),
-                'dof_actuation_force': self._tensors['dof_states'][:, 0].clone(),
+                'dof_targets': torch.zeros(n_dofs_sim, device=self.gpu_device, dtype=torch.float),
+                'dof_actuation_force': torch.zeros(n_dofs_sim, device=self.gpu_device, dtype=torch.float),
+                'forces': torch.zeros((self.n_envs, n_rbs_env, 3), device=self.gpu_device, dtype=torch.float),
+                'forces_pos': torch.zeros((self.n_envs, n_rbs_env, 3), device=self.gpu_device, dtype=torch.float)
             })
 
             self._actor_idxs_to_update = {
                 'root': [],
                 'dof_states': [],
                 'dof_targets': [],
-                'dof_actuation_force': []
+                'dof_actuation_force': [],
+                'forces': []
             }
             self.step()
 
@@ -347,7 +355,14 @@ class GymScene:
                     len(self._actor_idxs_to_update['dof_targets'])
                 )
 
-            # set forces
+            if len(self._actor_idxs_to_update['forces']) > 0:
+                self.gym.apply_rigid_body_force_at_pos_tensors(
+                                self.sim, 
+                                gymtorch.unwrap_tensor(self.tensors['forces']), 
+                                gymtorch.unwrap_tensor(self.tensors['forces_pos']), 
+                                gymapi.ENV_SPACE
+                            )
+
 
         self.gym.simulate(self.sim)
         self.gym.fetch_results(self.sim, True)
@@ -356,6 +371,10 @@ class GymScene:
             self.gym.refresh_actor_root_state_tensor(self.sim)
             self.gym.refresh_net_contact_force_tensor(self.sim)
             self.gym.refresh_dof_state_tensor(self.sim)
+
+            if len(self._actor_idxs_to_update['forces']) > 0:
+                self.tensors['forces'][:] = 0
+                self.tensors['forces_pos'][:] = 0
 
             for k in self._actor_idxs_to_update:
                 self._actor_idxs_to_update[k] = []

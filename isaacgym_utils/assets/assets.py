@@ -358,25 +358,13 @@ class GymAsset(ABC):
         bh = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self.rb_names_map[rb_name], gymapi.DOMAIN_ENV)
 
         if self._scene.use_gpu_pipeline:
-            n_rbs_sim = self._scene.gym.get_sim_rigid_body_count(self._scene.sim)
-            assert n_rbs_sim % self._scene.n_envs == 0
-            n_rbs_env = n_rbs_sim // self._scene.n_envs
-
-            forces = torch.zeros((self._scene.n_envs, n_rbs_env, 3), device=self._scene.gpu_device, dtype=torch.float)
-            locs = self._scene.tensors['rb_states'][:, 0:3].view(self._scene.n_envs, n_rbs_env, 3)
-
             for i, k in enumerate('xyz'):
-                forces[env_idx, bh, i] = getattr(force, k)
-                locs[env_idx, bh, i] = getattr(loc, k)
-
-            self._scene.gym.apply_rigid_body_force_at_pos_tensors(
-                self._scene.sim, 
-                gymtorch.unwrap_tensor(forces), 
-                gymtorch.unwrap_tensor(locs), 
-                gymapi.ENV_SPACE
-            )
+                self._scene.tensors['forces'][env_idx, bh, i] = getattr(force, k)
+                self._scene.tensors['forces_pos'][env_idx, bh, i] = getattr(loc, k)
+            self._scene._register_actor_tensor_to_update(env_idx, name, 'forces')
+            return True
         else:
-            self._scene.gym.apply_body_force(env_ptr, bh, force, loc)
+            return self._scene.gym.apply_body_force(env_ptr, bh, force, loc)
 
 
 class GymURDFAsset(GymAsset):
