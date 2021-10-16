@@ -1,5 +1,5 @@
 scene:
-  n_envs: 1
+  n_envs: 20
   es: 1
   gui: 1
   cam:
