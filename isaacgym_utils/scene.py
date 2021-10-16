@@ -1,7 +1,7 @@
 from copy import deepcopy
 import numpy as np
 from numba import jit
-from isaacgym import gymapi
+from isaacgym import gymapi, gymtorch
 
 from .math_utils import np_to_vec3
 from .constants import isaacgym_VERSION, quat_real_to_gym_cam
@@ -11,6 +11,7 @@ class GymScene:
 
     def __init__(self, cfg):
         self._gym, self._sim = make_gym(cfg['gym'])
+        self._use_gpu_pipeline = self._gym.get_sim_params(self._sim).use_gpu_pipeline
         self._n_envs = cfg['n_envs']
         self._gui = cfg['gui']
         self._dt = cfg['gym']['dt']
@@ -69,17 +70,39 @@ class GymScene:
         assert not self._has_ran_setup
         
         while self._current_mutable_env_idx < self.n_envs:
-            env_ptr = self._gym.create_env(self._sim, self._env_lower, self._env_upper, self._env_num_per_row)
+            env_ptr = self.gym.create_env(self.sim, self._env_lower, self._env_upper, self._env_num_per_row)
             self.env_ptrs.append(env_ptr)
             
             setup(self, self._current_mutable_env_idx)
 
             self._current_mutable_env_idx += 1
             
-        if self._gym.get_sim_params(self._sim).use_gpu_pipeline:
-            self._gym.prepare_sim(self._sim)
-        
+        if self.use_gpu_pipeline:
+            self.gym.prepare_sim(self.sim)
+            self._root_tensor = gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim))
+            self._rb_states = gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim))
+            self.step()
+
         self._has_ran_setup = True
+
+    @property
+    def use_gpu_pipeline(self):
+        return self._use_gpu_pipeline
+
+    @property
+    def gpu_device(self):
+        assert self.use_gpu_pipeline
+        return self._root_tensor.device
+
+    @property
+    def root_tensor(self):
+        assert self.use_gpu_pipeline
+        return self._root_tensor
+
+    @property
+    def rb_states(self):
+        assert self.use_gpu_pipeline
+        return self._rb_states
 
     @property
     def dt(self):
@@ -131,8 +154,8 @@ class GymScene:
         tform_gym = deepcopy(transform)
         tform_gym.r = tform_gym.r * quat_real_to_gym_cam
 
-        ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
-        self._gym.set_camera_transform(ch, env_ptr, tform_gym)
+        ch = self.gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
+        self.gym.set_camera_transform(ch, env_ptr, tform_gym)
         self.ch_map[env_idx][name] = ch
 
     def attach_camera(self, name, camera, actor_name, rb_name, offset_transform=None, follow_position_only=False):
@@ -154,15 +177,15 @@ class GymScene:
         ah = self.ah_map[env_idx][actor_name]
         asset = self.get_asset(actor_name)
         rb_idx = asset.rb_names_map[rb_name]
-        rbh = self._gym.get_actor_rigid_body_handle(env_ptr, ah, rb_idx)
+        rbh = self.gym.get_actor_rigid_body_handle(env_ptr, ah, rb_idx)
 
-        ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
+        ch = self.gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
         if isaacgym_VERSION == '1.0rc1':
             cam_follow_mode = 0 if follow_position_only else 1
         else:
             # only available in at least 1.0rc2
             cam_follow_mode = gymapi.FOLLOW_POSITION if follow_position_only else gymapi.FOLLOW_TRANSFORM
-        self._gym.attach_camera_to_body(ch, env_ptr, rbh, offset_tform_gym, cam_follow_mode)
+        self.gym.attach_camera_to_body(ch, env_ptr, rbh, offset_tform_gym, cam_follow_mode)
         self.ch_map[env_idx][name] = ch
 
     def get_asset(self, name, env_idx=0):
@@ -183,7 +206,7 @@ class GymScene:
         else:
             pose = poses
 
-        ah = self._gym.create_actor(env_ptr, asset.GLOBAL_ASSET_CACHE[asset.asset_uid], pose, name, env_idx, collision_filter, self._seg_ids[env_idx])
+        ah = self.gym.create_actor(env_ptr, asset.GLOBAL_ASSET_CACHE[asset.asset_uid], pose, name, env_idx, collision_filter, self._seg_ids[env_idx])
         self.ah_map[env_idx][name] = ah
 
         asset._post_create_actor(env_idx, name)
@@ -195,7 +218,7 @@ class GymScene:
         self._seg_ids[env_idx] += 1
 
         # update cts cache size
-        self._n_rbs = self._gym.get_sim_rigid_body_count(self._sim)
+        self._n_rbs = self.gym.get_sim_rigid_body_count(self.sim)
         self._all_cts_cache = np.zeros((self._n_rbs, 3))
         self._all_cts_loc_cache = np.zeros((self._n_rbs, 3))
         self._all_n_cts_cache = np.zeros(self._n_rbs, dtype='int')
@@ -218,7 +241,7 @@ class GymScene:
         self._all_cts_rb_counts_cache[:] = 0
         self._all_cts_pairs_cache[:] = 0
 
-        all_cts = self._gym.get_rigid_contacts(self._sim)
+        all_cts = self.gym.get_rigid_contacts(self.sim)
 
         # filter out invalid cts
         eps = 1e-5
@@ -267,25 +290,29 @@ class GymScene:
                 self._all_cts_pairs_cache[all_cts['body1'][non_plane_ct_mask], all_cts['body0'][non_plane_ct_mask]] = True
 
     def step(self):
-        self._gym.simulate(self._sim)
-        self._gym.fetch_results(self._sim, True)
+        self.gym.simulate(self.sim)
+        self.gym.fetch_results(self.sim, True)
+
+        if self.use_gpu_pipeline:
+            self.gym.refresh_actor_root_state_tensor(self.sim)
+
         if self.is_cts_enabled:
             self._propagate_asset_cts()
 
     def render(self, custom_draws=None):
         if self.gui:
-            self._gym.clear_lines(self._viewer)
+            self.gym.clear_lines(self._viewer)
 
             if custom_draws is not None:
                 custom_draws(self)
 
-            self._gym.step_graphics(self._sim)
-            self._gym.draw_viewer(self._viewer, self._sim, False)
-            self._gym.sync_frame_time(self._sim)
+            self.gym.step_graphics(self.sim)
+            self.gym.draw_viewer(self._viewer, self.sim, False)
+            self.gym.sync_frame_time(self.sim)
 
     def render_cameras(self):
-        self._gym.step_graphics(self._sim)
-        self._gym.render_all_camera_sensors(self._sim)
+        self.gym.step_graphics(self.sim)
+        self.gym.render_all_camera_sensors(self.sim)
 
     def run(self, time_horizon=None, policy=None, custom_draws=None, cb=None):
         t_step = 0
@@ -309,9 +336,9 @@ class GymScene:
             t_step += 1
 
     def close(self):
-        self._gym.destroy_sim(self._sim)
+        self.gym.destroy_sim(self.sim)
         if self.gui:
-            self._gym.destroy_viewer(self._viewer)
+            self.gym.destroy_viewer(self._viewer)
 
 
 @jit(nopython=True)
