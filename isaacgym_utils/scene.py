@@ -6,12 +6,13 @@ import torch
 
 from .math_utils import np_to_vec3
 from .constants import isaacgym_VERSION, quat_real_to_gym_cam
+from .assets import GymURDFAsset
 
 
 class GymScene:
 
     def __init__(self, cfg):
-        self._gym, self._sim = make_gym(cfg['gym'])
+        self._gym, self._sim, self._physics_engine = make_gym(cfg['gym'])
         self._use_gpu_pipeline = self._gym.get_sim_params(self._sim).use_gpu_pipeline
         self._n_envs = cfg['n_envs']
         self._gui = cfg['gui']
@@ -97,7 +98,6 @@ class GymScene:
                 'forces': torch.zeros((self.n_envs, n_rbs_env, 3), device=self.gpu_device, dtype=torch.float),
                 'forces_pos': torch.zeros((self.n_envs, n_rbs_env, 3), device=self.gpu_device, dtype=torch.float)
             })
-
             self._actor_idxs_to_update = {
                 'root': [],
                 'dof_states': [],
@@ -111,11 +111,22 @@ class GymScene:
             for name, asset in assets.items():
                 asset._post_create_actor(env_idx, name)
 
+        if self.physics_engine == gymapi.SIM_PHYSX:
+            self._tensors['jacobians'] = {env_idx: {} for env_idx in self.env_idxs}
+            for env_idx, assets in self._assets.items():
+                for name, asset in assets.items():
+                    if isinstance(asset, GymURDFAsset) and asset.n_dofs > 0:
+                        self._tensors['jacobians'][env_idx][name] = gymtorch.wrap_tensor(self.gym.acquire_jacobian_tensor(self.sim, name))
+
         self._has_ran_setup = True
 
     @property
     def use_gpu_pipeline(self):
         return self._use_gpu_pipeline
+
+    @property
+    def physics_engine(self):
+        return self._physics_engine
 
     @property
     def gpu_device(self):
@@ -363,7 +374,6 @@ class GymScene:
                                 gymapi.ENV_SPACE
                             )
 
-
         self.gym.simulate(self.sim)
         self.gym.fetch_results(self.sim, True)
 
@@ -378,6 +388,9 @@ class GymScene:
 
             for k in self._actor_idxs_to_update:
                 self._actor_idxs_to_update[k] = []
+
+        if self.physics_engine == gymapi.SIM_PHYSX:
+            self.gym.refresh_jacobian_tensors(self.sim)
 
         if self.is_cts_enabled and not self.use_gpu_pipeline:
             self._propagate_asset_cts()
@@ -486,4 +499,4 @@ def make_gym(sim_cfg):
     sim = gym.create_sim(compute_device, graphics_device, physics_engine, sim_params)
     gym.add_ground(sim, plane_params)
 
-    return gym, sim
+    return gym, sim, physics_engine

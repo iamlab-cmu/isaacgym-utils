@@ -257,7 +257,7 @@ class GymAsset(ABC):
 
     def get_rb_vels(self, env_idx, name):
         if self._scene.use_gpu_pipeline:
-            return self.get_rb_states(env_idx, name)[:, 7:].cpu().numpy().reshape(2, 3)
+            return self.get_rb_states(env_idx, name)[:, 7:].cpu().numpy().reshape(-1, 2, 3)
         else:
             return self.get_rb_states(env_idx, name)['vel']
 
