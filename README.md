@@ -93,6 +93,7 @@ To directly write values into writable tensors (see IsaacGym docs for more detai
 
 ## Things to Note
 
+* Attractors can't be used if `use_gpu_pipeline: True`
 * If using `physx` and not controlling the an actor with joint PD control, you must set `dof_props->stiffness` to have all `0`'s, otherwise IsaacGym's internal PD control is still in effect, even if you're sending torque commands or using attractors. This is not a problem when using the `flex` backend.
 * We only support `scene->gym->up_axis: z` - setting the `up_axis` to `x` or `y` will give unexpected behaviors for camera rendering. This is a bug internal to IsaacGym.
 * `flex` w/ backend supports getting point-wise contacts. `physx` backend w/ `use_gpu_pipeline: True` and `use_gpu: True` only supports getting body-wise contacts (summing up all point-wise contacts). Other `physx` configurations do not support getting any contact forces.
