@@ -87,7 +87,7 @@ class GymScene:
             self._dof_targets_tensor = self._dof_states_tensor[:, 0].clone()
 
             self._actor_idxs_to_update = {
-                'rb_states_tensor': [],
+                'root_tensor': [],
                 'dof_states_tensor': [],
                 'dof_targets_tensor': []
             }
@@ -317,7 +317,7 @@ class GymScene:
                 self._all_cts_pairs_cache[all_cts['body0'][non_plane_ct_mask], all_cts['body1'][non_plane_ct_mask]] = True
                 self._all_cts_pairs_cache[all_cts['body1'][non_plane_ct_mask], all_cts['body0'][non_plane_ct_mask]] = True
 
-    def _register_actor_to_update(self, env_idx, name, tensor_name):
+    def _register_actor_tensor_to_update(self, env_idx, name, tensor_name):
         env_ptr = self.env_ptrs[env_idx]
         ah = self.ah_map[env_idx][name]
         actor_idx = self.gym.get_actor_index(env_ptr, ah, gymapi.DOMAIN_SIM)
@@ -325,7 +325,14 @@ class GymScene:
 
     def step(self):
         if self.use_gpu_pipeline:
-            # set rb_state
+            if len(self._actor_idxs_to_update['root_tensor']) > 0:
+                actor_idxs_th = torch.tensor(self._actor_idxs_to_update['root_tensor'], device=self.gpu_device)
+                self.gym.set_actor_root_state_tensor_indexed(
+                    self.sim, 
+                    gymtorch.unwrap_tensor(self.root_tensor), 
+                    gymtorch.unwrap_tensor(actor_idxs_th.int()),
+                    len(self._actor_idxs_to_update['root_tensor'])
+                )
 
             if len(self._actor_idxs_to_update['dof_states_tensor']) > 0:
                 actor_idxs_th = torch.tensor(self._actor_idxs_to_update['dof_states_tensor'], device=self.gpu_device)
