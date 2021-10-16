@@ -112,28 +112,17 @@ class GymFranka(GymURDFAsset):
         return self._attractor_transforms_map[key]
 
     def get_left_finger_ct_forces(self, env_idx, name):
-        env_ptr = self._scene.env_ptrs[env_idx]
-        ah = self._scene.ah_map[env_idx][name]
-        rbi_lf = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._left_finger_rb_name], gymapi.DOMAIN_ENV)
-        ct_forces_lf = self.get_rb_ct_forces(env_idx, name)[rbi_lf]
-
-        return ct_forces_lf
+        rbi_lf = self.rb_names_map[self._left_finger_rb_name]
+        return self.get_rb_ct_forces(env_idx, name)[rbi_lf]
 
     def get_right_finger_ct_forces(self, env_idx, name):
-        env_ptr = self._scene.env_ptrs[env_idx]
-        ah = self._scene.ah_map[env_idx][name]
-        rbi_rf = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._right_finger_rb_name], gymapi.DOMAIN_ENV)
-        ct_forces_rf = self.get_rb_ct_forces(env_idx, name)[rbi_rf]
-
-        return ct_forces_rf
+        rbi_lf = self.rb_names_map[self._right_finger_rb_name]
+        return self.get_rb_ct_forces(env_idx, name)[rbi_lf]
 
     def get_ee_ct_forces(self, env_idx, name):
-        ah = self._scene.ah_map[env_idx][name]
         if self._use_custom_ee:
-            all_ct_forces = self._scene.gym.get_rigid_contact_forces(self._scene.sim)
-            env_ptr = self._scene.env_ptrs[env_idx]
-            rbi = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._custom_ee_rb_name], gymapi.DOMAIN_SIM)
-            ct_forces = np.array([all_ct_forces[rbi][k] for k in 'xyz'])
+            rbi_lf = self.rb_names_map[self._custom_ee_rb_name]
+            ct_forces = self.get_rb_ct_forces(env_idx, name)[rbi_lf]
         else:
             ct_forces_lf = self.get_left_finger_ct_forces(env_idx, name)
             ct_forces_rf = self.get_right_finger_ct_forces(env_idx, name)
