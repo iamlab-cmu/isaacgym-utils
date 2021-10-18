@@ -112,17 +112,17 @@ class GymFranka(GymURDFAsset):
         return self._attractor_transforms_map[key]
 
     def get_left_finger_ct_forces(self, env_idx, name):
-        rbi_lf = self.rb_names_map[self._left_finger_rb_name]
-        return self.get_rb_ct_forces(env_idx, name)[rbi_lf]
+        rbi = self.rb_names_map[self._left_finger_rb_name]
+        return self.get_rb_ct_forces(env_idx, name)[rbi]
 
     def get_right_finger_ct_forces(self, env_idx, name):
-        rbi_lf = self.rb_names_map[self._right_finger_rb_name]
-        return self.get_rb_ct_forces(env_idx, name)[rbi_lf]
+        rbi = self.rb_names_map[self._right_finger_rb_name]
+        return self.get_rb_ct_forces(env_idx, name)[rbi]
 
     def get_ee_ct_forces(self, env_idx, name):
         if self._use_custom_ee:
-            rbi_lf = self.rb_names_map[self._custom_ee_rb_name]
-            ct_forces = self.get_rb_ct_forces(env_idx, name)[rbi_lf]
+            rbi = self.rb_names_map[self._custom_ee_rb_name]
+            ct_forces = self.get_rb_ct_forces(env_idx, name)[rbi]
         else:
             ct_forces_lf = self.get_left_finger_ct_forces(env_idx, name)
             ct_forces_rf = self.get_right_finger_ct_forces(env_idx, name)
