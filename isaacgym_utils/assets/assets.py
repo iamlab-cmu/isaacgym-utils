@@ -337,7 +337,7 @@ class GymAsset(ABC):
             env_ptr = self._scene.env_ptrs[env_idx]
             ah = self._scene.ah_map[env_idx][name]
 
-            return self._scene.tensors['net_cf'][[
+            return -self._scene.tensors['net_cf'][[
                 self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, rb_idx, gymapi.DOMAIN_SIM)
                 for rb_idx in range(self.rb_count)
             ]]

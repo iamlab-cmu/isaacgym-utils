@@ -56,8 +56,9 @@ class GymFranka(GymURDFAsset):
         self._attractor_handles_map = {}
         self._attractor_transforms_map = {}
 
-        self._attractor_stiffness = cfg['attractor_props']['stiffness']
-        self._attractor_damping = cfg['attractor_props']['damping']
+        if actuation_mode == 'attractors':
+            self._attractor_stiffness = cfg['attractor_props']['stiffness']
+            self._attractor_damping = cfg['attractor_props']['damping']
 
     def set_gripper_width_target(self, env_idx, name, width):
         joints_targets = self.get_joints_targets(env_idx, name)
