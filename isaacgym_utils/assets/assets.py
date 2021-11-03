@@ -228,7 +228,12 @@ class GymAsset(ABC):
     def set_rb_states(self, env_idx, name, rb_states):
         env_ptr = self._scene.env_ptrs[env_idx]
         ah = self._scene.ah_map[env_idx][name]
-        self._scene.gym.set_actor_rigid_body_states(env_ptr, ah, rb_states, gymapi.STATE_ALL)
+        return self._scene.gym.set_actor_rigid_body_states(
+            env_ptr,
+            ah,
+            rb_states,
+            gymapi.STATE_ALL,
+        )
 
     def set_rb_transforms(self, env_idx, name, transforms):
         rb_states = self.get_rb_states(env_idx, name)
@@ -244,7 +249,7 @@ class GymAsset(ABC):
             for k in 'wxyz':
                 rb_states[i]['pose']['r'][k] = getattr(transform.r, k)
 
-        self.set_rb_states(env_idx, name, rb_states)
+        return self.set_rb_states(env_idx, name, rb_states)
 
     def set_rb_rigid_transforms(self, env_idx, name, rigid_transforms):
         transforms = [RigidTransform_to_transform(rigid_transform) for rigid_transform in rigid_transforms]
