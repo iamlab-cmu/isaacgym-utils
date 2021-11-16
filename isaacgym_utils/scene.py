@@ -111,7 +111,7 @@ class GymScene:
             for name, asset in assets.items():
                 asset._post_create_actor(env_idx, name)
 
-        if self.physics_engine == gymapi.SIM_PHYSX:
+        if self.physics_engine == gymapi.SIM_PHYSX and self.use_gpu_pipeline:
             self._tensors['jacobians'] = {env_idx: {} for env_idx in self.env_idxs}
             for env_idx, assets in self._assets.items():
                 for name, asset in assets.items():
