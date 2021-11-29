@@ -181,6 +181,9 @@ def rotation_between_axes(v0, v1):
     '''
     v = np.cross(v0, v1)
     norm_v = np.linalg.norm(v)
+    if np.isclose(norm_v, 0, atol=1e-5):
+        return np.eye(3)
+
     v_axis = v / norm_v
 
     s = norm_v
