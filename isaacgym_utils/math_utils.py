@@ -197,13 +197,8 @@ def rotation_between_axes(v0, v1):
         norm_v = np.linalg.norm(v)
         v_axis = v / norm_v
 
-    s = norm_v
-    c = v0 @ v1
-    
     K = skew(v_axis)
-    K2 = K @ K
-
-    R = np.eye(3) + s * K + (1 - c) * K2
+    R = np.eye(3) + norm_v * K + (1 - d) * (K @ K)
 
     return R
 
