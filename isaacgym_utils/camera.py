@@ -16,7 +16,8 @@ class GymCamera:
 
         self.gym_cam_props = gymapi.CameraProperties()
         for key, value in cam_props.items():
-            setattr(self.gym_cam_props, key, value)
+            if hasattr(self.gym_cam_props, key):
+                setattr(self.gym_cam_props, key, value)
 
         self._x_axis_rot = np.array([
             [1, 0, 0],
