@@ -88,7 +88,7 @@ class GymCamera:
 
     def frames(self, env_idx, name, get_color=True, get_depth=True, get_seg=True, get_normal=True):
         assert get_color or get_depth or get_seg or get_normal
-        
+
         env_ptr = self._scene.env_ptrs[env_idx]
         ch = self._scene.ch_map[env_idx][name]
 
@@ -112,12 +112,12 @@ class GymCamera:
                 raw_depth = self._scene.gym.get_camera_image(self._scene.sim, env_ptr, ch, gymapi.IMAGE_DEPTH)
                 depth = _process_gym_depth(raw_depth)
                 depth_im = DepthImage(depth, frame=name)
-            
+
             normal = _make_normal_map(depth_im, self.get_intrinsics(name))
             frames['normal'] = NormalCloudImage(normal, frame=name)
-        
+
         return frames
-            
+
 
 def _process_gym_color(raw_im):
     return raw_im.flatten().reshape(raw_im.shape[0], raw_im.shape[1]//4, 4)[:, :, :3]
@@ -135,12 +135,12 @@ def _make_normal_map(depth, intr, inf_depth=100):
     depth = DepthImage(depth_data, frame=depth.frame)
 
     pts = intr.deproject_to_image(depth).data
-    
+
     A = pts[1:, :-1] - pts[:-1, :-1]
     B = pts[:-1, 1:] - pts[:-1, :-1]
     C = np.cross(A.reshape(-1, 3), B.reshape(-1, 3))
     D = C / np.linalg.norm(C, axis=1).reshape(-1, 1)
-    
+
     normal = np.zeros((depth.shape[0], depth.shape[1], 3))
     normal[:-1, :-1] = D.reshape(A.shape)
     normal[-1, :] = normal[-2, :]
