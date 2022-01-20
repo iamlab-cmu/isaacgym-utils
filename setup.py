@@ -1,26 +1,24 @@
-"""Setup script for isaacgym_utils"""
+'''Setup script for isaacgym_utils'''
 
 from setuptools import setup
 
 # Optional dependency groups.
 extras = {
-    "ik": ["roboticstoolbox-python", "spatialmath-python"],
-    "ray": ["ray"],
-    "rl": ["stable_baselines3"],
+    'ik': ['roboticstoolbox-python', 'spatialmath-python'],
+    'ray': ['ray'],
+    'rl': ['stable_baselines3', 'gym'],
 }
 
-extras["all"] = list(
+extras['all'] = list(
     set([item for group in extras.values() for item in group])
 )
 
 requirements = [
     'autolab_core>=1.1.0',
     'visualization',
-    'simple_zmq',
-    'triangle',
     'numba',
-    'numpy-quaternion',
-    'gym',
+    'triangle',
+    'numpy-quaternion'
 ]
 
 setup(name='isaacgym_utils',

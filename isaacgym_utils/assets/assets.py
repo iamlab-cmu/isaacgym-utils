@@ -1,12 +1,9 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from pathlib import Path
-import os
 
 import numpy as np
-from autolab_core import RigidTransform
 
 from isaacgym import gymapi
-from isaacgym import gymtorch
 from isaacgym_utils.math_utils import np_to_vec3, np_to_quat, transform_to_RigidTransform, RigidTransform_to_transform
 
 
@@ -158,7 +155,13 @@ class GymAsset(ABC):
                     self._scene.gym.set_rigid_body_color(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, np_to_vec3([1, 1, 1]))
                     # create and set texture
                     if rb_props[rb_idx]['texture'] not in self.GLOBAL_TEXTURES_CACHE:
-                        self.GLOBAL_TEXTURES_CACHE[rb_props[rb_idx]['texture']] = self._scene.gym.create_texture_from_file(self._scene.sim, str(self._assets_root / rb_props[rb_idx]['texture']))
+                        texture_path = str(
+                            (self._assets_root / rb_props[rb_idx]['texture']).resolve()
+                        )
+                        self.GLOBAL_TEXTURES_CACHE[rb_props[rb_idx]['texture']] = self._scene.gym.create_texture_from_file(
+                            self._scene.sim,
+                            texture_path,
+                        )
                     th = self.GLOBAL_TEXTURES_CACHE[rb_props[rb_idx]['texture']]
                     self._scene.gym.set_rigid_body_texture(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, th)
 
@@ -225,7 +228,12 @@ class GymAsset(ABC):
     def set_rb_states(self, env_idx, name, rb_states):
         env_ptr = self._scene.env_ptrs[env_idx]
         ah = self._scene.ah_map[env_idx][name]
-        self._scene.gym.set_actor_rigid_body_states(env_ptr, ah, rb_states, gymapi.STATE_ALL)
+        return self._scene.gym.set_actor_rigid_body_states(
+            env_ptr,
+            ah,
+            rb_states,
+            gymapi.STATE_ALL,
+        )
 
     def set_rb_transforms(self, env_idx, name, transforms):
         rb_states = self.get_rb_states(env_idx, name)
@@ -241,7 +249,7 @@ class GymAsset(ABC):
             for k in 'wxyz':
                 rb_states[i]['pose']['r'][k] = getattr(transform.r, k)
 
-        self.set_rb_states(env_idx, name, rb_states)
+        return self.set_rb_states(env_idx, name, rb_states)
 
     def set_rb_rigid_transforms(self, env_idx, name, rigid_transforms):
         transforms = [RigidTransform_to_transform(rigid_transform) for rigid_transform in rigid_transforms]

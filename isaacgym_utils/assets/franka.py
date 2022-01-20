@@ -122,7 +122,7 @@ class GymFranka(GymURDFAsset):
     def get_left_finger_ct_forces(self, env_idx, name):
         env_ptr = self._scene.env_ptrs[env_idx]
         ah = self._scene.ah_map[env_idx][name]
-        rbi_lf = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._left_finger_rb_name], gymapi.DOMAIN_SIM)
+        rbi_lf = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._left_finger_rb_name], gymapi.DOMAIN_ENV)
         ct_forces_lf = self.get_rb_ct_forces(env_idx, name)[rbi_lf]
 
         return ct_forces_lf
@@ -130,7 +130,7 @@ class GymFranka(GymURDFAsset):
     def get_right_finger_ct_forces(self, env_idx, name):
         env_ptr = self._scene.env_ptrs[env_idx]
         ah = self._scene.ah_map[env_idx][name]
-        rbi_rf = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._right_finger_rb_name], gymapi.DOMAIN_SIM)
+        rbi_rf = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._right_finger_rb_name], gymapi.DOMAIN_ENV)
         ct_forces_rf = self.get_rb_ct_forces(env_idx, name)[rbi_rf]
 
         return ct_forces_rf
