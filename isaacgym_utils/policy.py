@@ -84,7 +84,7 @@ class GraspBlockPolicy(Policy):
 
         if t_step == 300:
             self._franka.close_grippers(env_idx, self._franka_name)
-        
+
         if t_step == 400:
             self._ee_waypoint_policies[env_idx] = \
                 EEImpedanceWaypointPolicy(
@@ -149,28 +149,28 @@ class GraspPointPolicy(Policy):
             self._grasp_transforms.append(self._grasp_transform)
             self._pre_grasp_transforms.append(pre_grasp_transfrom)
 
-            self._franka.set_ee_transform(env_idx, self._franka_name, self._pre_grasp_transforms[env_idx])
+            self._franka.set_ee_transform_target(env_idx, self._franka_name, self._pre_grasp_transforms[env_idx])
 
         if t_step == 100:
-            self._franka.set_ee_transform(env_idx, self._franka_name, self._grasp_transforms[env_idx])
+            self._franka.set_ee_transform_target(env_idx, self._franka_name, self._grasp_transforms[env_idx])
 
         if t_step == 150:
             self._franka.close_grippers(env_idx, self._franka_name)
-        
+
         if t_step == 250:
-            self._franka.set_ee_transform(env_idx, self._franka_name, self._pre_grasp_transforms[env_idx])
+            self._franka.set_ee_transform_target(env_idx, self._franka_name, self._pre_grasp_transforms[env_idx])
 
         if t_step == 350:
-            self._franka.set_ee_transform(env_idx, self._franka_name, self._grasp_transforms[env_idx])
+            self._franka.set_ee_transform_target(env_idx, self._franka_name, self._grasp_transforms[env_idx])
 
         if t_step == 500:
             self._franka.open_grippers(env_idx, self._franka_name)
 
         if t_step == 550:
-            self._franka.set_ee_transform(env_idx, self._franka_name, self._pre_grasp_transforms[env_idx])
+            self._franka.set_ee_transform_target(env_idx, self._franka_name, self._pre_grasp_transforms[env_idx])
 
         if t_step == 600:
-            self._franka.set_ee_transform(env_idx, self._franka_name, self._init_ee_transforms[env_idx])
+            self._franka.set_ee_transform_target(env_idx, self._franka_name, self._init_ee_transforms[env_idx])
 
         if t_step == 700:
             self._franka.set_joints(env_idx, self._franka_name, self._init_joints)
@@ -218,7 +218,7 @@ class FrankaEEImpedanceController:
         x_vel_elb = J_elb @ q_dot
 
         tau_1 = compute_task_space_impedance_control(J_elb, elbow_transform, elbow_target_transform, x_vel_elb, self._Ks_1, self._Ds_1)
-        
+
         # nullspace projection
         JT_inv = np.linalg.pinv(J.T)
         Null = np.eye(7) - J.T @ (JT_inv)

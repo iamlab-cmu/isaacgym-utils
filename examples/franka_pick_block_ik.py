@@ -160,7 +160,7 @@ if __name__ == "__main__":
         for env_idx in scene.env_idxs:
             franka.set_joints(env_idx, franka_name, init_joint_angles[env_idx])
             franka.set_joints_targets(env_idx, franka_name, init_joint_angles[env_idx])
-            franka.set_ee_transform(env_idx, franka_name, init_ee_tforms[env_idx])
+            franka.set_ee_transform_target(env_idx, franka_name, init_ee_tforms[env_idx])
 
         # sample block poses
         block_transforms = [
@@ -221,7 +221,7 @@ if __name__ == "__main__":
             # This should "snap" the robot to the block
             franka.set_joints(env_idx, franka_name, joint_angles)
             franka.set_joints_targets(env_idx, franka_name, joint_angles)
-            franka.set_ee_transform(env_idx, franka_name, grasp_transform)
+            franka.set_ee_transform_target(env_idx, franka_name, grasp_transform)
 
         # Pause for a second
         scene.run(time_horizon=100)

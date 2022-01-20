@@ -233,11 +233,11 @@ class GymFrankaVecEnv(GymVecEnv):
                     init_random_joints = np.clip(np.random.normal(self._init_joints[env_idx], \
                         (self._frankas[env_idx].joint_limits_upper - self._frankas[env_idx].joint_limits_lower)/10), self._frankas[env_idx].joint_limits_lower, \
                         self._frankas[env_idx].joint_limits_upper)
-                    self._frankas[env_idx].set_joints(env_idx, self._franka_name, init_random_joints)            
+                    self._frankas[env_idx].set_joints(env_idx, self._franka_name, init_random_joints)
                     self._frankas[env_idx].set_joints_targets(env_idx, self._franka_name, init_random_joints)
 
             if self._action_mode == 'vic':
-                self._frankas[env_idx].set_ee_transform(
+                self._frankas[env_idx].set_ee_transform_target(
                     env_idx, self._franka_name, self._init_ee_transforms[env_idx]
                 )
 

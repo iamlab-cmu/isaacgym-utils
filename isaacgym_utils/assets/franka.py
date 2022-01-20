@@ -184,7 +184,7 @@ class GymFranka(GymURDFAsset):
                 self._attractor_handles_map[key] = attractor_handle
 
             gripper_transform = self.get_ee_transform(env_idx, name)
-            self.set_ee_transform(env_idx, name, gripper_transform)
+            self.set_ee_transform_target(env_idx, name, gripper_transform)
         elif self._actuation_mode == 'joints':
             self.set_dof_props(env_idx, name, {
                 'driveMode': [gymapi.DOF_MODE_POS] * 9
@@ -223,7 +223,7 @@ class GymFranka(GymURDFAsset):
 
         self._scene.gym.set_attractor_properties(env_ptr, ath, attractor_props)
 
-    def set_ee_transform(self, env_idx, name, transform):
+    def set_ee_transform_target(self, env_idx, name, transform):
         if self._actuation_mode != 'attractors':
             raise ValueError('Can\'t set ee transform when not using attractors!')
         key = self._key(env_idx, name)
@@ -243,7 +243,7 @@ class GymFranka(GymURDFAsset):
         desired_transform.p = desired_transform.p + transform.p
         desired_transform.r = transform.r * desired_transform.r
 
-        self.set_ee_transform(env_idx, name, desired_transform)
+        self.set_ee_transform_target(env_idx, name, desired_transform)
 
     def apply_torque(self, env_idx, name, tau):
         if len(tau) == 7:
