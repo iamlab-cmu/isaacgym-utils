@@ -3,10 +3,6 @@ import argparse
 import numpy as np
 from autolab_core import YamlConfig, RigidTransform
 
-import roboticstoolbox as rtb
-from spatialmath import SE3, SO3
-from spatialmath.quaternion import UnitQuaternion
-
 from isaacgym import gymapi
 from isaacgym_utils.scene import GymScene
 from isaacgym_utils.assets import GymFranka, GymBoxAsset
@@ -100,8 +96,6 @@ if __name__ == "__main__":
 
     policy = GraspBlockPolicy(franka, franka_name, block, block_name)
 
-    robot_model_for_ik = rtb.models.URDF.Panda()
-
     # this was found by setting ee position to [0.4, 0., 0.8] and same initial ee rot
     # this helps IK converge to a sensible solution
     robot_joints_for_ik = np.array(
@@ -115,38 +109,6 @@ if __name__ == "__main__":
             7.8967488e-01,
         ]
     )
-
-    def franka_ik_from_gym_transform(
-        env_idx, desired_ee_transform, init_robot_joints=None
-    ):
-
-        if init_robot_joints is None:
-            init_robot_joints = franka.get_joints(env_idx, franka_name)[:7].astype(
-                "float"
-            )
-
-        # where is the franka base
-        base_tform = franka.get_base_transform(env_idx, franka_name)
-        desired_ee_pos = desired_ee_transform.p
-
-        desired_ee_pos_wrt_base = vec3_to_np(desired_ee_pos - base_tform.p)
-
-        quat_desired = UnitQuaternion(
-            desired_ee_transform.r.w,
-            [
-                desired_ee_transform.r.x,
-                desired_ee_transform.r.y,
-                desired_ee_transform.r.z,
-            ],
-        )
-
-        T = SE3(desired_ee_pos_wrt_base) * SE3(SO3(quat_desired.R))
-        sol = robot_model_for_ik.ikine_LM(T, q0=init_robot_joints, ilimit=200)
-
-        ik_solution_found = sol.success
-        joint_angles = sol.q
-
-        return ik_solution_found, joint_angles
 
     init_joint_angles = [
         franka.get_joints(env_idx, franka_name) for env_idx in scene.env_idxs
@@ -201,27 +163,16 @@ if __name__ == "__main__":
                 r=ee_orientation,
             )
 
-            ik_solution_found, joint_angles_wo_gripper = franka_ik_from_gym_transform(
+            # Now set robot directly using IK
+            set_ee_success = franka.set_ee_transform(
                 env_idx,
+                franka_name,
                 grasp_transform,
-                robot_joints_for_ik,
+                ik_robot_joints_hint=robot_joints_for_ik,
             )
             assert (
-                ik_solution_found
-            ), "IK solution for source block grasp was not found."
-
-            gripper_angles = franka.get_joints(env_idx, franka_name)[7:].astype("float")
-            joint_angles = np.concatenate(
-                (
-                    joint_angles_wo_gripper,
-                    gripper_angles,
-                )
-            )
-
-            # This should "snap" the robot to the block
-            franka.set_joints(env_idx, franka_name, joint_angles)
-            franka.set_joints_targets(env_idx, franka_name, joint_angles)
-            franka.set_ee_transform_target(env_idx, franka_name, grasp_transform)
+                set_ee_success
+            ), "Could not set EE transform -- IK solution was not found."
 
         # Pause for a second
         scene.run(time_horizon=100)
