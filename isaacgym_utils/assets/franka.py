@@ -234,7 +234,7 @@ class GymFranka(GymURDFAsset):
         env_ptr = self._scene.env_ptrs[env_idx]
         self._scene.gym.set_attractor_target(env_ptr, attractor_handle, transform)
 
-    def set_delta_ee_transform(self, env_idx, name, transform):
+    def set_ee_transform_delta_target(self, env_idx, name, transform):
         ''' This performs delta translation in the global frame and
             delta rotation in the end-effector frame.
         '''
