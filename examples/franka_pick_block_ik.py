@@ -10,7 +10,7 @@ from spatialmath.quaternion import UnitQuaternion
 from isaacgym import gymapi
 from isaacgym_utils.scene import GymScene
 from isaacgym_utils.assets import GymFranka, GymBoxAsset
-from isaacgym_utils.camera import GymCamera, CameraZMQPublisher
+from isaacgym_utils.camera import GymCamera
 from isaacgym_utils.math_utils import (
     np_to_vec3,
     RigidTransform_to_transform,
@@ -63,7 +63,6 @@ if __name__ == "__main__":
         )
     )
     cam_name = "hand_cam0"
-    cam_pub = CameraZMQPublisher()
 
     def setup(scene, _):
         scene.add_asset(table_name, table, table_transform)
