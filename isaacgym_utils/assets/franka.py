@@ -7,7 +7,10 @@ from spatialmath import SE3, SO3
 from spatialmath.quaternion import UnitQuaternion
 
 from isaacgym import gymapi
-from isaacgym_utils.constants import isaacgym_utils_ASSETS_PATH
+from isaacgym_utils.constants import (
+    franka_default_joints_for_ik,
+    isaacgym_utils_ASSETS_PATH,
+)
 from isaacgym_utils.math_utils import transform_to_RigidTransform, vec3_to_np, quat_to_rot, np_to_vec3
 
 from .assets import GymURDFAsset
@@ -261,17 +264,7 @@ class GymFranka(GymURDFAsset):
     def joints_from_ee_transform_ik(self, env_idx, name, ee_transform, ik_robot_joints_hint='default'):
 
         if isinstance(ik_robot_joints_hint, str) and ik_robot_joints_hint == 'default':
-            # this was found by setting ee position to [0.4, 0., 0.8] and same initial ee rot
-            # this helps IK converge to a sensible solution for most workspace EE poses
-            robot_joints_for_ik = np.array([
-                1.1024622e-02,
-                -4.0491045e-01,
-                -1.0826388e-02,
-                -2.5944960e00,
-                -5.4867277e-03,
-                2.1895969e00,
-                7.8967488e-01,
-            ])
+            robot_joints_for_ik = franka_default_joints_for_ik
         elif isinstance(ik_robot_joints_hint, str) and ik_robot_joints_hint == 'current':
             robot_joints_for_ik = self.get_joints(env_idx, name)[:7].astype(
                 "float"
