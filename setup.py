@@ -4,7 +4,6 @@ from setuptools import setup
 
 # Optional dependency groups.
 extras = {
-    'ik': ['roboticstoolbox-python', 'spatialmath-python'],
     'ray': ['ray'],
     'rl': ['stable_baselines3', 'gym'],
 }
@@ -18,7 +17,9 @@ requirements = [
     'visualization',
     'numba',
     'triangle',
-    'numpy-quaternion'
+    'numpy-quaternion',
+    'roboticstoolbox-python',  # needed for ik
+    'spatialmath-python',  # needed for ik
 ]
 
 setup(name='isaacgym_utils',
