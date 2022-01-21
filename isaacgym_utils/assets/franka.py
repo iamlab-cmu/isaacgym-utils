@@ -237,7 +237,7 @@ class GymFranka(GymURDFAsset):
 
         # TODO: deal with ee offsets
 
-        ik_solution_found, ik_joint_angles_wo_gripper = self.joints_from_ee_transform_ik(
+        ik_solution_found, ik_joint_angles_wo_gripper = self.get_joints_from_ee_transform_ik(
             env_idx,
             name,
             ee_transform,
@@ -261,7 +261,7 @@ class GymFranka(GymURDFAsset):
 
         return ik_solution_found
 
-    def joints_from_ee_transform_ik(self, env_idx, name, ee_transform, ik_robot_joints_hint='default'):
+    def get_joints_from_ee_transform_ik(self, env_idx, name, ee_transform, ik_robot_joints_hint='default'):
 
         if isinstance(ik_robot_joints_hint, str) and ik_robot_joints_hint == 'default':
             robot_joints_for_ik = franka_default_joints_for_ik
