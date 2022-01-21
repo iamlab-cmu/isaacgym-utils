@@ -31,7 +31,6 @@ pip install -e isaacgym-utils[group]
 ```
 
 where `group` is the following:
-- `ik`: inverse kinematics (IK)
 - `rl`: reinforcement learning (RL)
 - `ray`: parallel IsaacGym instances via Ray
 - `all`: install all capability groups
@@ -59,8 +58,6 @@ python examples/run_franka.py
 Each example script has a corresponding config file in `cfg/` that can be used to change object properties like friction.
 
 ### Inverse Kinematics
-
-Requires the `[ik]` or `[all]` installation of `isaacgym-utils`.
 
 See `isaacgym_utils/examples/franka_pick_block_ik.py` for an example of using IK for the Franka Panda robot. IK is provided by the [Robotics Toolbox for Python](https://github.com/petercorke/robotics-toolbox-python).
 
