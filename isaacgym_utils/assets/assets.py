@@ -2,6 +2,7 @@ from abc import ABC
 from pathlib import Path
 
 import numpy as np
+import torch
 
 from isaacgym import gymapi
 from isaacgym_utils.math_utils import np_to_vec3, np_to_quat, transform_to_RigidTransform, RigidTransform_to_transform
@@ -193,67 +194,134 @@ class GymAsset(ABC):
     def get_rb_states(self, env_idx, name):
         env_ptr = self._scene.env_ptrs[env_idx]
         ah = self._scene.ah_map[env_idx][name]
-        return self._scene.gym.get_actor_rigid_body_states(env_ptr, ah, gymapi.STATE_ALL)
-    
-    def get_rb_poses_as_np_array(self, env_idx, name):
-        pos = self.get_rb_states(env_idx, name)['pose']['p']
-        rot = self.get_rb_states(env_idx, name)['pose']['r']
 
-        poses_np = np.zeros([len(pos), 7])
-        for i, v in enumerate('xyz'):
-            poses_np[:, i] = pos[v]
-
-        for i, v in enumerate('wxyz'):
-            poses_np[:, i + 3] = rot[v]
-
-        return poses_np
-
-    def get_rb_poses(self, env_idx, name):
-        return self.get_rb_states(env_idx, name)['pose']
-
-    def get_rb_vels_as_np_array(self, env_idx, name):
-        vel = self.get_rb_states(env_idx, name)['vel']
-
-        vel_np = np.zeros((len(vel), 2, 3))
-
-        for i, v in enumerate('xyz'):
-            vel_np[:, 0, i] = vel['linear'][v]
-            vel_np[:, 1, i] = vel['angular'][v]
-
-        return vel_np
-
-    def get_rb_vels(self, env_idx, name):
-        return self.get_rb_states(env_idx, name)['vel']
-
+        if self._scene.use_gpu_pipeline:
+            rb_states_tensor_idxs = [
+                    self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, rb_idx, gymapi.DOMAIN_SIM)
+                    for rb_idx in range(self.rb_count)
+                ]
+            rb_states_tensor = self._scene.tensors['rb_states'][rb_states_tensor_idxs].clone()
+            # xyzw -> wxyz
+            rb_states_tensor[:, [3, 4, 5, 6]] = rb_states_tensor[:, [6, 3, 4, 5]]
+            return rb_states_tensor
+        else:
+            return self._scene.gym.get_actor_rigid_body_states(env_ptr, ah, gymapi.STATE_ALL)
+        
     def set_rb_states(self, env_idx, name, rb_states):
         env_ptr = self._scene.env_ptrs[env_idx]
         ah = self._scene.ah_map[env_idx][name]
-        return self._scene.gym.set_actor_rigid_body_states(
-            env_ptr,
-            ah,
-            rb_states,
-            gymapi.STATE_ALL,
-        )
+
+        if self._scene.use_gpu_pipeline:
+            # can only set root rb state. others are read-only
+            root_state = rb_states[0].clone()
+            # wxyz -> xyzw
+            root_state[[3, 4, 5, 6]] = root_state[[4, 5, 6, 3]]
+
+            actor_idx = self._scene.gym.get_actor_index(env_ptr, ah, gymapi.DOMAIN_SIM)
+            self._scene.tensors['root'][actor_idx] = root_state
+            self._scene.register_actor_tensor_to_update(env_idx, name, 'root')
+            return True
+        else:
+
+            return self._scene.gym.set_actor_rigid_body_states(env_ptr, ah, rb_states, gymapi.STATE_ALL)
+
+    def get_rb_poses_as_np_array(self, env_idx, name):
+        if self._scene.use_gpu_pipeline:
+            return self.get_rb_poses(env_idx, name)
+        else:
+            pos = self.get_rb_states(env_idx, name)['pose']['p']
+            rot = self.get_rb_states(env_idx, name)['pose']['r']
+
+            poses_np = np.zeros([len(pos), 7])
+            for i, v in enumerate('xyz'):
+                poses_np[:, i] = pos[v]
+
+            for i, v in enumerate('wxyz'):
+                poses_np[:, i + 3] = rot[v]
+
+            return poses_np
+
+    def get_rb_poses(self, env_idx, name):
+        if self._scene.use_gpu_pipeline:
+            return self.get_rb_states(env_idx, name)[:, :7].cpu().numpy()
+        else:
+            return self.get_rb_states(env_idx, name)['pose']
+
+    def get_rb_vels_as_np_array(self, env_idx, name):
+        if self._scene.use_gpu_pipeline:
+            return self.get_rb_vels(env_idx, name)
+        else:
+            vel = self.get_rb_states(env_idx, name)['vel']
+
+            vel_np = np.zeros((len(vel), 2, 3))
+
+            for i, v in enumerate('xyz'):
+                vel_np[:, 0, i] = vel['linear'][v]
+                vel_np[:, 1, i] = vel['angular'][v]
+
+            return vel_np
+
+    def get_rb_vels(self, env_idx, name):
+        if self._scene.use_gpu_pipeline:
+            return self.get_rb_states(env_idx, name)[:, 7:].cpu().numpy().reshape(-1, 2, 3)
+        else:
+            return self.get_rb_states(env_idx, name)['vel']
+
+    def get_rb_transforms(self, env_idx, name):
+        rb_states = self.get_rb_states(env_idx, name)
+
+        transforms = []
+        for i in range(len(rb_states)):
+            if self._scene.use_gpu_pipeline:
+                translation = rb_states[i, :3].cpu().numpy()
+                quaternion = rb_states[i, [4, 5, 6, 3]].cpu().numpy()
+            else:
+                translation = np.array([rb_states['pose']['p'][k][i] for k in 'xyz'])
+                quaternion = np.array([rb_states['pose']['r'][k][i] for k in 'xyzw'])
+
+            transforms.append(gymapi.Transform(p=np_to_vec3(translation), r=np_to_quat(quaternion)))
+
+        return transforms
+
+    def get_rb_transform(self, env_idx, name, rb_name):
+        env_ptr = self._scene.env_ptrs[env_idx]
+
+        if self._scene.use_gpu_pipeline:
+            ah = self._scene.ah_map[env_idx][name]
+            rb_idx = self.rb_names_map[rb_name]
+            rb_tensor_idx = self._scene.gym.get_actor_rigid_body_index(
+                env_ptr, ah, rb_idx, gymapi.DOMAIN_SIM
+            )
+            rb_state = self._scene.tensors['rb_states'][rb_tensor_idx]
+            return gymapi.Transform(p=np_to_vec3(rb_state[:3]), r=np_to_quat(rb_state[3:7]))
+        else:
+            bh = self._scene.gym.get_rigid_handle(env_ptr, name, rb_name)
+            return self._scene.gym.get_rigid_transform(env_ptr, bh)
 
     def set_rb_transforms(self, env_idx, name, transforms):
         rb_states = self.get_rb_states(env_idx, name)
-
-        for k in 'xyz':
-            rb_states['vel']['linear'][k] = 0
-            rb_states['vel']['angular'][k] = 0
-
-        for i, transform in enumerate(transforms):
+        
+        if self._scene.use_gpu_pipeline:
+            rb_states[:, 7:] = 0
+            
+            for i, transform in enumerate(transforms):
+                for j, k in enumerate('xyz'):
+                    rb_states[i][j] = getattr(transform.p, k)
+                
+                for j, k in enumerate('wxyz'):
+                    rb_states[i][j + 3] = getattr(transform.r, k)
+        else:
             for k in 'xyz':
-                rb_states[i]['pose']['p'][k] = getattr(transform.p, k)
+                rb_states['vel']['linear'][k] = 0
+                rb_states['vel']['angular'][k] = 0
 
-            for k in 'wxyz':
-                rb_states[i]['pose']['r'][k] = getattr(transform.r, k)
+            for i, transform in enumerate(transforms):
+                for k in 'xyz':
+                    rb_states[i]['pose']['p'][k] = getattr(transform.p, k)
 
+                for k in 'wxyz':
+                    rb_states[i]['pose']['r'][k] = getattr(transform.r, k)
         return self.set_rb_states(env_idx, name, rb_states)
-
-    def set_rb_rigid_transforms(self, env_idx, name, rigid_transforms):
-        transforms = [RigidTransform_to_transform(rigid_transform) for rigid_transform in rigid_transforms]
-        self.set_rb_transforms(env_idx, name, transforms)
 
     def get_rb_rigid_transforms(self, env_idx, name):
         transforms = self.get_rb_transforms(env_idx, name)
@@ -265,34 +333,40 @@ class GymAsset(ABC):
 
         return rigid_transforms
 
-    def get_rb_transforms(self, env_idx, name):
-        rb_states = self.get_rb_states(env_idx, name)
-
-        transforms = []
-        for i in range(len(rb_states)):
-            translation = np.array([rb_states['pose']['p'][k][i] for k in 'xyz'])
-            quaternion = np.array([rb_states['pose']['r'][k][i] for k in 'xyzw'])
-
-            transforms.append(gymapi.Transform(p=np_to_vec3(translation), r=np_to_quat(quaternion)))
-
-        return transforms
+    def set_rb_rigid_transforms(self, env_idx, name, rigid_transforms):
+        transforms = [RigidTransform_to_transform(rigid_transform) for rigid_transform in rigid_transforms]
+        self.set_rb_transforms(env_idx, name, transforms)
 
     def get_rb_ct_forces(self, env_idx, name):
-        return self._all_cts_cache[self._sim_rb_idxs_map[env_idx][name]]
+        if self._scene.use_gpu_pipeline:
+            env_ptr = self._scene.env_ptrs[env_idx]
+            ah = self._scene.ah_map[env_idx][name]
+
+            return -self._scene.tensors['net_cf'][[
+                self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, rb_idx, gymapi.DOMAIN_SIM)
+                for rb_idx in range(self.rb_count)
+            ]]
+        else:
+            return self._all_cts_cache[self._sim_rb_idxs_map[env_idx][name]]
 
     def get_rb_ct_locs(self, env_idx, name):
+        assert not self._scene.use_gpu_pipeline
         return self._all_cts_loc_cache[self._sim_rb_idxs_map[env_idx][name]]
 
     def get_rb_ct_forces_parts(self, env_idx, name):
+        assert not self._scene.use_gpu_pipeline
         return self._all_cts_cache_raw[self._sim_rb_idxs_map[env_idx][name], :, 0]
 
     def get_rb_ct_locs_parts(self, env_idx, name):
+        assert not self._scene.use_gpu_pipeline
         return self._all_cts_cache_raw[self._sim_rb_idxs_map[env_idx][name], :, 1]
 
     def get_rb_n_cts(self, env_idx, name):
+        assert not self._scene.use_gpu_pipeline
         return self._all_n_cts_cache[self._sim_rb_idxs_map[env_idx][name]]
 
     def get_rb_in_ct(self, env_idx, source_asset_name, target_asset, target_asset_names, source_rb_idx=0, target_rb_idx=0):
+        assert not self._scene.use_gpu_pipeline
         source_rb_idx = self._sim_rb_idxs_map[env_idx][source_asset_name][source_rb_idx]
         target_rb_idxs = [target_asset._sim_rb_idxs_map[env_idx][target_asset_name][target_rb_idx] for target_asset_name in target_asset_names]
 
@@ -303,7 +377,14 @@ class GymAsset(ABC):
         ah = self._scene.ah_map[env_idx][name]
         bh = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self.rb_names_map[rb_name], gymapi.DOMAIN_ENV)
 
-        self._scene.gym.apply_body_force(env_ptr, bh, force, loc)
+        if self._scene.use_gpu_pipeline:
+            for i, k in enumerate('xyz'):
+                self._scene.tensors['forces'][env_idx, bh, i] = getattr(force, k)
+                self._scene.tensors['forces_pos'][env_idx, bh, i] = getattr(loc, k)
+            self._scene.register_actor_tensor_to_update(env_idx, name, 'forces')
+            return True
+        else:
+            return self._scene.gym.apply_body_force(env_ptr, bh, force, loc)
 
 
 class GymURDFAsset(GymAsset):
@@ -327,12 +408,30 @@ class GymURDFAsset(GymAsset):
     def get_dof_states(self, env_idx, name):
         env_ptr = self._scene.env_ptrs[env_idx]
         ah = self._scene.ah_map[env_idx][name]
-        return self._scene.gym.get_actor_dof_states(env_ptr, ah, gymapi.STATE_ALL).copy()
+
+        if self._scene.use_gpu_pipeline:
+            dof_states_tensor_idxs = [
+                    self._scene.gym.get_actor_dof_index(env_ptr, ah, dof_idx, gymapi.DOMAIN_SIM)
+                    for dof_idx in range(self.n_dofs)
+                ]
+            return self._scene.tensors['dof_states'][dof_states_tensor_idxs].clone()
+        else:
+            return self._scene.gym.get_actor_dof_states(env_ptr, ah, gymapi.STATE_ALL).copy()
 
     def set_dof_states(self, env_idx, name, dof_states):
         env_ptr = self._scene.env_ptrs[env_idx]
         ah = self._scene.ah_map[env_idx][name]
-        return self._scene.gym.set_actor_dof_states(env_ptr, ah, dof_states, gymapi.STATE_ALL)
+
+        if self._scene.use_gpu_pipeline:
+            dof_states_tensor_idxs = [
+                    self._scene.gym.get_actor_dof_index(env_ptr, ah, dof_idx, gymapi.DOMAIN_SIM)
+                    for dof_idx in range(self.n_dofs)
+                ]
+            self._scene.tensors['dof_states'][dof_states_tensor_idxs] = dof_states
+            self._scene.register_actor_tensor_to_update(env_idx, name, 'dof_states')
+            return True
+        else:
+            return self._scene.gym.set_actor_dof_states(env_ptr, ah, dof_states, gymapi.STATE_ALL)
 
     def get_dof_names_map(self, env_idx, name):
         env_ptr = self._scene.env_ptrs[env_idx]
@@ -340,20 +439,37 @@ class GymURDFAsset(GymAsset):
         return self._scene.gym.get_actor_dof_dict(env_ptr, ah)
 
     def get_joints(self, env_idx, name):
-        return self.get_dof_states(env_idx, name)['pos']
+        dof_states = self.get_dof_states(env_idx, name)
+        if self._scene.use_gpu_pipeline:
+            return dof_states[:, 0].cpu().numpy()
+        else:
+            return dof_states['pos']
     
     def get_joints_velocity(self, env_idx, name):
-        return self.get_dof_states(env_idx, name)['vel']
+        dof_states = self.get_dof_states(env_idx, name)
+        if self._scene.use_gpu_pipeline:
+            return dof_states[:, 1].cpu().numpy()
+        else:
+            return dof_states['vel']
 
     def set_joints(self, env_idx, name, joints):
         dof_states = self.get_dof_states(env_idx, name)
-        dof_states['pos'] = joints
-        dof_states['vel'] *= 0
+
+        if self._scene.use_gpu_pipeline:
+            dof_states[:, 0] = torch.from_numpy(joints).type_as(dof_states).to(dof_states.device)
+            dof_states[:, 1] = 0
+        else:
+            dof_states['pos'] = joints
+            dof_states['vel'] *= 0
         return self.set_dof_states(env_idx, name, dof_states)
 
     def set_joints_velocity(self, env_idx, name, joints_velocity):
         dof_states = self.get_dof_states(env_idx, name)
-        dof_states['vel'] = joints_velocity
+
+        if self._scene.use_gpu_pipeline:
+            dof_states[:, 1] = torch.from_numpy(joints_velocity).type_as(dof_states).to(dof_states.device)
+        else:
+            dof_states['vel'] = joints_velocity
         return self.set_dof_states(env_idx, name, dof_states)
 
     def apply_delta_joints(self, env_idx, name, delta_joints):
@@ -364,22 +480,28 @@ class GymURDFAsset(GymAsset):
     def get_joints_targets(self, env_idx, name):
         env_ptr = self._scene.env_ptrs[env_idx]
         ah = self._scene.ah_map[env_idx][name]
-        return self._scene.gym.get_actor_dof_position_targets(env_ptr, ah)
+
+        if self._scene.use_gpu_pipeline:
+            return self.get_joints(env_idx, name)
+        else:
+            return self._scene.gym.get_actor_dof_position_targets(env_ptr, ah)
 
     def set_joints_targets(self, env_idx, name, joints):
         env_ptr = self._scene.env_ptrs[env_idx]
         ah = self._scene.ah_map[env_idx][name]
-        return self._scene.gym.set_actor_dof_position_targets(env_ptr, ah, joints.astype('float32'))
 
-    def get_rb_states(self, env_idx, name):
-        env_ptr = self._scene.env_ptrs[env_idx]
-        ah = self._scene.ah_map[env_idx][name]
-        return self._scene.gym.get_actor_rigid_body_states(env_ptr, ah, gymapi.STATE_ALL)
-
-    def set_rb_states(self, env_idx, name, rb_states):
-        env_ptr = self._scene.env_ptrs[env_idx]
-        ah = self._scene.ah_map[env_idx][name]
-        return self._scene.gym.set_actor_rigid_body_states(env_ptr, ah, rb_states, gymapi.STATE_ALL)
+        if self._scene.use_gpu_pipeline:
+            dof_targets_tensor_idxs = [
+                    self._scene.gym.get_actor_dof_index(env_ptr, ah, dof_idx, gymapi.DOMAIN_SIM)
+                    for dof_idx in range(self.n_dofs)
+                ]
+            self._scene.tensors['dof_targets'][dof_targets_tensor_idxs] = torch.from_numpy(joints)\
+                                                        .type_as(self._scene.tensors['dof_targets'])\
+                                                        .to(self._scene.gpu_device)
+            self._scene.register_actor_tensor_to_update(env_idx, name, 'dof_targets')
+            return True
+        else:
+            return self._scene.gym.set_actor_dof_position_targets(env_ptr, ah, joints.astype('float32'))
 
     def apply_delta_joint_targets(self, env_idx, name, delta_joints):
         dof_targets = self.get_joints(env_idx, name)
@@ -390,7 +512,20 @@ class GymURDFAsset(GymAsset):
     def apply_actor_dof_efforts(self, env_idx, name, tau):
         env_ptr = self._scene.env_ptrs[env_idx]
         ah = self._scene.ah_map[env_idx][name]
-        self._scene.gym.apply_actor_dof_efforts(env_ptr, ah, tau.astype('float32'))
+
+        if self._scene.use_gpu_pipeline:
+            dof_states_tensor_idxs = [
+                    self._scene.gym.get_actor_dof_index(env_ptr, ah, dof_idx, gymapi.DOMAIN_SIM)
+                    for dof_idx in range(self.n_dofs)
+                ]
+            self._scene.tensors['dof_actuation_force'][dof_states_tensor_idxs] = torch.from_numpy(tau).\
+                                                        type_as(self._scene.tensors['dof_actuation_force'])\
+                                                        .to(self._scene.gpu_device)
+
+            self._scene.register_actor_tensor_to_update(env_idx, name, 'dof_actuation_force')
+            return True
+        else:
+            return self._scene.gym.apply_actor_dof_efforts(env_ptr, ah, tau.astype('float32'))
 
 
 class GymBoxAsset(GymAsset):

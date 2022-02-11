@@ -179,17 +179,26 @@ def rotation_between_axes(v0, v1):
     Uses Rodrigues' formula.
     Assumes v0 and v1 are unit vectors
     '''
-    v = np.cross(v0, v1)
-    norm_v = np.linalg.norm(v)
-    v_axis = v / norm_v
+    d = v0 @ v1
+    if np.isclose(d, 1, atol=1e-5):
+        return np.eye(3)
+    elif np.isclose(d, -1, atol=1e-5):
+        N = np.eye(3) - np.outer(v0, v0)
+        while True:
+            ax = N @ np.random.randn(3)
+            ax_norm = np.linalg.norm(ax)
+            if not np.isclose(ax_norm, 0, atol=1e-5):
+                ax /= ax_norm
+                break
+        v_axis = ax
+        norm_v = 0
+    else:
+        v = np.cross(v0, v1)
+        norm_v = np.linalg.norm(v)
+        v_axis = v / norm_v
 
-    s = norm_v
-    c = v0 @ v1
-    
     K = skew(v_axis)
-    K2 = K @ K
-
-    R = np.eye(3) + s * K + (1 - c) * K2
+    R = np.eye(3) + norm_v * K + (1 - d) * (K @ K)
 
     return R
 

@@ -1,16 +1,19 @@
 from copy import deepcopy
 import numpy as np
 from numba import jit
-from isaacgym import gymapi
+from isaacgym import gymapi, gymtorch
+import torch
 
 from .math_utils import np_to_vec3
 from .constants import isaacgym_VERSION, quat_real_to_gym_cam
+from .assets import GymURDFAsset
 
 
 class GymScene:
 
     def __init__(self, cfg):
-        self._gym, self._sim = make_gym(cfg['gym'])
+        self._gym, self._sim, self._physics_engine = make_gym(cfg['gym'])
+        self._use_gpu_pipeline = self._gym.get_sim_params(self._sim).use_gpu_pipeline
         self._n_envs = cfg['n_envs']
         self._gui = cfg['gui']
         self._dt = cfg['gym']['dt']
@@ -69,17 +72,71 @@ class GymScene:
         assert not self._has_ran_setup
         
         while self._current_mutable_env_idx < self.n_envs:
-            env_ptr = self._gym.create_env(self._sim, self._env_lower, self._env_upper, self._env_num_per_row)
+            env_ptr = self.gym.create_env(self.sim, self._env_lower, self._env_upper, self._env_num_per_row)
             self.env_ptrs.append(env_ptr)
             
             setup(self, self._current_mutable_env_idx)
 
             self._current_mutable_env_idx += 1
             
-        if self._gym.get_sim_params(self._sim).use_gpu_pipeline:
-            self._gym.prepare_sim(self._sim)
-        
+        if self.use_gpu_pipeline:
+            n_rbs_sim = self.gym.get_sim_rigid_body_count(self.sim)
+            assert n_rbs_sim % self.n_envs == 0
+            n_rbs_env = n_rbs_sim // self.n_envs
+            n_dofs_sim = self.gym.get_sim_dof_count(self.sim)
+
+            self.gym.prepare_sim(self.sim)
+            self._tensors = {
+                'root': gymtorch.wrap_tensor(self.gym.acquire_actor_root_state_tensor(self.sim)),
+                'rb_states': gymtorch.wrap_tensor(self.gym.acquire_rigid_body_state_tensor(self.sim)),
+                'net_cf': gymtorch.wrap_tensor(self.gym.acquire_net_contact_force_tensor(self.sim)),
+                'dof_states': gymtorch.wrap_tensor(self.gym.acquire_dof_state_tensor(self.sim))
+            }
+            self._tensors.update({
+                'dof_targets': torch.zeros(n_dofs_sim, device=self.gpu_device, dtype=torch.float),
+                'dof_actuation_force': torch.zeros(n_dofs_sim, device=self.gpu_device, dtype=torch.float),
+                'forces': torch.zeros((self.n_envs, n_rbs_env, 3), device=self.gpu_device, dtype=torch.float),
+                'forces_pos': torch.zeros((self.n_envs, n_rbs_env, 3), device=self.gpu_device, dtype=torch.float)
+            })
+            self._actor_idxs_to_update = {
+                'root': [],
+                'dof_states': [],
+                'dof_targets': [],
+                'dof_actuation_force': [],
+                'forces': []
+            }
+            self.step()
+
+        for env_idx, assets in self._assets.items():
+            for name, asset in assets.items():
+                asset._post_create_actor(env_idx, name)
+
+        if self.physics_engine == gymapi.SIM_PHYSX and self.use_gpu_pipeline:
+            self._tensors['jacobians'] = {env_idx: {} for env_idx in self.env_idxs}
+            for env_idx, assets in self._assets.items():
+                for name, asset in assets.items():
+                    if isinstance(asset, GymURDFAsset) and asset.n_dofs > 0:
+                        self._tensors['jacobians'][env_idx][name] = gymtorch.wrap_tensor(self.gym.acquire_jacobian_tensor(self.sim, name))
+
         self._has_ran_setup = True
+
+    @property
+    def use_gpu_pipeline(self):
+        return self._use_gpu_pipeline
+
+    @property
+    def physics_engine(self):
+        return self._physics_engine
+
+    @property
+    def gpu_device(self):
+        assert self.use_gpu_pipeline
+        return self.tensors['root'].device
+
+    @property
+    def tensors(self):
+        assert self.use_gpu_pipeline
+        return self._tensors
 
     @property
     def dt(self):
@@ -131,8 +188,8 @@ class GymScene:
         tform_gym = deepcopy(transform)
         tform_gym.r = tform_gym.r * quat_real_to_gym_cam
 
-        ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
-        self._gym.set_camera_transform(ch, env_ptr, tform_gym)
+        ch = self.gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
+        self.gym.set_camera_transform(ch, env_ptr, tform_gym)
         self.ch_map[env_idx][name] = ch
 
     def attach_camera(self, name, camera, actor_name, rb_name, offset_transform=None, follow_position_only=False):
@@ -154,15 +211,15 @@ class GymScene:
         ah = self.ah_map[env_idx][actor_name]
         asset = self.get_asset(actor_name)
         rb_idx = asset.rb_names_map[rb_name]
-        rbh = self._gym.get_actor_rigid_body_handle(env_ptr, ah, rb_idx)
+        rbh = self.gym.get_actor_rigid_body_handle(env_ptr, ah, rb_idx)
 
-        ch = self._gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
+        ch = self.gym.create_camera_sensor(env_ptr, camera.gym_cam_props)
         if isaacgym_VERSION == '1.0rc1':
             cam_follow_mode = 0 if follow_position_only else 1
         else:
             # only available in at least 1.0rc2
             cam_follow_mode = gymapi.FOLLOW_POSITION if follow_position_only else gymapi.FOLLOW_TRANSFORM
-        self._gym.attach_camera_to_body(ch, env_ptr, rbh, offset_tform_gym, cam_follow_mode)
+        self.gym.attach_camera_to_body(ch, env_ptr, rbh, offset_tform_gym, cam_follow_mode)
         self.ch_map[env_idx][name] = ch
 
     def get_asset(self, name, env_idx=0):
@@ -183,10 +240,9 @@ class GymScene:
         else:
             pose = poses
 
-        ah = self._gym.create_actor(env_ptr, asset.GLOBAL_ASSET_CACHE[asset.asset_uid], pose, name, env_idx, collision_filter, self._seg_ids[env_idx])
+        ah = self.gym.create_actor(env_ptr, asset.GLOBAL_ASSET_CACHE[asset.asset_uid], pose, name, env_idx, collision_filter, self._seg_ids[env_idx])
         self.ah_map[env_idx][name] = ah
 
-        asset._post_create_actor(env_idx, name)
         asset.set_shape_props(env_idx, name)
         asset.set_rb_props(env_idx, name)
         asset.set_dof_props(env_idx, name)
@@ -195,7 +251,7 @@ class GymScene:
         self._seg_ids[env_idx] += 1
 
         # update cts cache size
-        self._n_rbs = self._gym.get_sim_rigid_body_count(self._sim)
+        self._n_rbs = self.gym.get_sim_rigid_body_count(self.sim)
         self._all_cts_cache = np.zeros((self._n_rbs, 3))
         self._all_cts_loc_cache = np.zeros((self._n_rbs, 3))
         self._all_n_cts_cache = np.zeros(self._n_rbs, dtype='int')
@@ -218,7 +274,7 @@ class GymScene:
         self._all_cts_rb_counts_cache[:] = 0
         self._all_cts_pairs_cache[:] = 0
 
-        all_cts = self._gym.get_rigid_contacts(self._sim)
+        all_cts = self.gym.get_rigid_contacts(self.sim)
 
         # filter out invalid cts
         eps = 1e-5
@@ -266,26 +322,93 @@ class GymScene:
                 self._all_cts_pairs_cache[all_cts['body0'][non_plane_ct_mask], all_cts['body1'][non_plane_ct_mask]] = True
                 self._all_cts_pairs_cache[all_cts['body1'][non_plane_ct_mask], all_cts['body0'][non_plane_ct_mask]] = True
 
+    def register_actor_tensor_to_update(self, env_idx, name, tensor_name):
+        env_ptr = self.env_ptrs[env_idx]
+        ah = self.ah_map[env_idx][name]
+        actor_idx = self.gym.get_actor_index(env_ptr, ah, gymapi.DOMAIN_SIM)
+        self._actor_idxs_to_update[tensor_name].append(actor_idx)
+
     def step(self):
-        self._gym.simulate(self._sim)
-        self._gym.fetch_results(self._sim, True)
-        if self.is_cts_enabled:
+        if self.use_gpu_pipeline:
+            if len(self._actor_idxs_to_update['root']) > 0:
+                actor_idxs_th = torch.tensor(self._actor_idxs_to_update['root'], device=self.gpu_device)
+                self.gym.set_actor_root_state_tensor_indexed(
+                    self.sim, 
+                    gymtorch.unwrap_tensor(self.tensors['root']), 
+                    gymtorch.unwrap_tensor(actor_idxs_th.int()),
+                    len(self._actor_idxs_to_update['root'])
+                )
+
+            if len(self._actor_idxs_to_update['dof_states']) > 0:
+                actor_idxs_th = torch.tensor(self._actor_idxs_to_update['dof_states'], device=self.gpu_device)
+                self.gym.set_dof_state_tensor_indexed(
+                    self.sim, 
+                    gymtorch.unwrap_tensor(self.tensors['dof_states']), 
+                    gymtorch.unwrap_tensor(actor_idxs_th.int()),
+                    len(self._actor_idxs_to_update['dof_states'])
+                )
+
+            if len(self._actor_idxs_to_update['dof_actuation_force']) > 0:
+                actor_idxs_th = torch.tensor(self._actor_idxs_to_update['dof_actuation_force'], device=self.gpu_device)
+                self.gym.set_dof_actuation_force_tensor_indexed(
+                    self.sim, 
+                    gymtorch.unwrap_tensor(self.tensors['dof_actuation_force']), 
+                    gymtorch.unwrap_tensor(actor_idxs_th.int()),
+                    len(self._actor_idxs_to_update['dof_actuation_force'])
+                )
+
+            if len(self._actor_idxs_to_update['dof_targets']) > 0:
+                actor_idxs_th = torch.tensor(self._actor_idxs_to_update['dof_targets'], device=self.gpu_device)
+                self.gym.set_dof_position_target_tensor_indexed(
+                    self.sim, 
+                    gymtorch.unwrap_tensor(self.tensors['dof_targets']), 
+                    gymtorch.unwrap_tensor(actor_idxs_th.int()),
+                    len(self._actor_idxs_to_update['dof_targets'])
+                )
+
+            if len(self._actor_idxs_to_update['forces']) > 0:
+                self.gym.apply_rigid_body_force_at_pos_tensors(
+                                self.sim, 
+                                gymtorch.unwrap_tensor(self.tensors['forces']), 
+                                gymtorch.unwrap_tensor(self.tensors['forces_pos']), 
+                                gymapi.ENV_SPACE
+                            )
+
+        self.gym.simulate(self.sim)
+        self.gym.fetch_results(self.sim, True)
+
+        if self.use_gpu_pipeline:
+            self.gym.refresh_actor_root_state_tensor(self.sim)
+            self.gym.refresh_net_contact_force_tensor(self.sim)
+            self.gym.refresh_dof_state_tensor(self.sim)
+
+            if len(self._actor_idxs_to_update['forces']) > 0:
+                self.tensors['forces'][:] = 0
+                self.tensors['forces_pos'][:] = 0
+
+            for k in self._actor_idxs_to_update:
+                self._actor_idxs_to_update[k] = []
+
+        if self.physics_engine == gymapi.SIM_PHYSX:
+            self.gym.refresh_jacobian_tensors(self.sim)
+
+        if self.is_cts_enabled and not self.use_gpu_pipeline:
             self._propagate_asset_cts()
 
     def render(self, custom_draws=None):
         if self.gui:
-            self._gym.clear_lines(self._viewer)
+            self.gym.clear_lines(self._viewer)
 
             if custom_draws is not None:
                 custom_draws(self)
 
-            self._gym.step_graphics(self._sim)
-            self._gym.draw_viewer(self._viewer, self._sim, False)
-            self._gym.sync_frame_time(self._sim)
+            self.gym.step_graphics(self.sim)
+            self.gym.draw_viewer(self._viewer, self.sim, False)
+            self.gym.sync_frame_time(self.sim)
 
     def render_cameras(self):
-        self._gym.step_graphics(self._sim)
-        self._gym.render_all_camera_sensors(self._sim)
+        self.gym.step_graphics(self.sim)
+        self.gym.render_all_camera_sensors(self.sim)
 
     def run(self, time_horizon=None, policy=None, custom_draws=None, cb=None):
         t_step = 0
@@ -309,9 +432,9 @@ class GymScene:
             t_step += 1
 
     def close(self):
-        self._gym.destroy_sim(self._sim)
+        self.gym.destroy_sim(self.sim)
         if self.gui:
-            self._gym.destroy_viewer(self._viewer)
+            self.gym.destroy_viewer(self._viewer)
 
 
 @jit(nopython=True)
@@ -376,4 +499,4 @@ def make_gym(sim_cfg):
     sim = gym.create_sim(compute_device, graphics_device, physics_engine, sim_params)
     gym.add_ground(sim, plane_params)
 
-    return gym, sim
+    return gym, sim, physics_engine

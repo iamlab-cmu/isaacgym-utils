@@ -56,8 +56,9 @@ class GymFranka(GymURDFAsset):
         self._attractor_handles_map = {}
         self._attractor_transforms_map = {}
 
-        self._attractor_stiffness = cfg['attractor_props']['stiffness']
-        self._attractor_damping = cfg['attractor_props']['damping']
+        if actuation_mode == 'attractors':
+            self._attractor_stiffness = cfg['attractor_props']['stiffness']
+            self._attractor_damping = cfg['attractor_props']['damping']
 
     def set_gripper_width_target(self, env_idx, name, width):
         joints_targets = self.get_joints_targets(env_idx, name)
@@ -82,15 +83,10 @@ class GymFranka(GymURDFAsset):
         return self.get_joints(env_idx, name)[-1]
 
     def get_base_transform(self, env_idx, name):
-        env_ptr = self._scene.env_ptrs[env_idx]
-        bh = self._scene.gym.get_rigid_handle(env_ptr, name, 'panda_link0')
-        base_transform = self._scene.gym.get_rigid_transform(env_ptr, bh)
-        return base_transform
+        return self.get_rb_transform(env_idx, name, 'panda_link0')
 
     def get_ee_transform(self, env_idx, name, offset=True):
-        env_ptr = self._scene.env_ptrs[env_idx]
-        bh = self._scene.gym.get_rigid_handle(env_ptr, name, 'panda_hand')
-        ee_transform = self._scene.gym.get_rigid_transform(env_ptr, bh)
+        ee_transform = self.get_rb_transform(env_idx, name, 'panda_hand')
         if offset:
             ee_transform = ee_transform * self._gripper_offset * self._ee_tool_offset
         return ee_transform
@@ -100,11 +96,8 @@ class GymFranka(GymURDFAsset):
                                                 from_frame='panda_ee', to_frame='panda_link0')
 
     def get_finger_transforms(self, env_idx, name, offset=True):
-        env_ptr = self._scene.env_ptrs[env_idx]
-        bh_lf = self._scene.gym.get_rigid_handle(env_ptr, name, self._left_finger_rb_name)
-        bh_rf = self._scene.gym.get_rigid_handle(env_ptr, name, self._right_finger_rb_name)
-        lf_transform = self._scene.gym.get_rigid_transform(env_ptr, bh_lf)
-        rf_transform = self._scene.gym.get_rigid_transform(env_ptr, bh_rf)
+        lf_transform = self.get_rb_transform(env_idx, name, self._left_finger_rb_name)
+        rf_transform = self.get_rb_transform(env_idx, name, self._right_finger_rb_name)
 
         if offset:
             lf_transform = lf_transform * self._finger_offset
@@ -120,28 +113,17 @@ class GymFranka(GymURDFAsset):
         return self._attractor_transforms_map[key]
 
     def get_left_finger_ct_forces(self, env_idx, name):
-        env_ptr = self._scene.env_ptrs[env_idx]
-        ah = self._scene.ah_map[env_idx][name]
-        rbi_lf = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._left_finger_rb_name], gymapi.DOMAIN_ENV)
-        ct_forces_lf = self.get_rb_ct_forces(env_idx, name)[rbi_lf]
-
-        return ct_forces_lf
+        rbi = self.rb_names_map[self._left_finger_rb_name]
+        return self.get_rb_ct_forces(env_idx, name)[rbi]
 
     def get_right_finger_ct_forces(self, env_idx, name):
-        env_ptr = self._scene.env_ptrs[env_idx]
-        ah = self._scene.ah_map[env_idx][name]
-        rbi_rf = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._right_finger_rb_name], gymapi.DOMAIN_ENV)
-        ct_forces_rf = self.get_rb_ct_forces(env_idx, name)[rbi_rf]
-
-        return ct_forces_rf
+        rbi = self.rb_names_map[self._right_finger_rb_name]
+        return self.get_rb_ct_forces(env_idx, name)[rbi]
 
     def get_ee_ct_forces(self, env_idx, name):
-        ah = self._scene.ah_map[env_idx][name]
         if self._use_custom_ee:
-            all_ct_forces = self._scene.gym.get_rigid_contact_forces(self._scene.sim)
-            env_ptr = self._scene.env_ptrs[env_idx]
-            rbi = self._scene.gym.get_actor_rigid_body_index(env_ptr, ah, self._rb_names_map[self._custom_ee_rb_name], gymapi.DOMAIN_SIM)
-            ct_forces = np.array([all_ct_forces[rbi][k] for k in 'xyz'])
+            rbi = self.rb_names_map[self._custom_ee_rb_name]
+            ct_forces = self.get_rb_ct_forces(env_idx, name)[rbi]
         else:
             ct_forces_lf = self.get_left_finger_ct_forces(env_idx, name)
             ct_forces_rf = self.get_right_finger_ct_forces(env_idx, name)
@@ -252,14 +234,10 @@ class GymFranka(GymURDFAsset):
         self.apply_actor_dof_efforts(env_idx, name, tau)
 
     def get_links_transforms(self, env_idx, name):
-        transforms = []
-        env_ptr = self._scene.env_ptrs[env_idx]
-        for i in range(1, 8):
-            link_name = 'panda_link{}'.format(i)
-            bh = self._scene.gym.get_rigid_handle(env_ptr, name, link_name)
-            transforms.append(self._scene.gym.get_rigid_transform(env_ptr, bh) )
-
-        return transforms
+        return [
+            self.get_rb_transform(env_idx, name, f'panda_link{i}')
+            for i in range(1, 8)
+        ]
 
     def get_links_rigid_transforms(self, env_idx, name):
         transforms = self.get_links_transforms(env_idx, name)

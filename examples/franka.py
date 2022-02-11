@@ -32,7 +32,14 @@ if __name__ == "__main__":
     scene.setup_all_envs(setup)
 
     def custom_draws(scene):
-        draw_transforms(scene, scene.env_idxs, [franka_transform], length=0.2)
+        for env_idx in scene.env_idxs:
+            transforms = [
+                franka.get_base_transform(env_idx, 'franka'),
+                franka.get_ee_transform(env_idx, 'franka'),
+            ]
+            transforms.extend(franka.get_finger_transforms(env_idx, 'franka'))
+            transforms.extend(franka.get_links_transforms(env_idx, 'franka'))
+            draw_transforms(scene, [env_idx], transforms, length=0.1)
 
     policy = RandomDeltaJointPolicy(franka, 'franka')
     scene.run(policy=policy, custom_draws=custom_draws)
