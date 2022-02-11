@@ -1,6 +1,10 @@
 # isaacgym-utils
 This repo contains wrappers and utilities for `isaacgym`
 
+Supported version of Isaac Gym: 1.0rc2
+
+Supported `up_axis` mode: `z` (`UP_AXIS_Z` in the Isaac Gym documentation)
+
 ## Installation
 
 ### Install IsaacGym

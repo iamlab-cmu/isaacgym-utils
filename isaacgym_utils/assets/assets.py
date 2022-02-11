@@ -156,7 +156,13 @@ class GymAsset(ABC):
                     self._scene.gym.set_rigid_body_color(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, np_to_vec3([1, 1, 1]))
                     # create and set texture
                     if rb_props[rb_idx]['texture'] not in self.GLOBAL_TEXTURES_CACHE:
-                        self.GLOBAL_TEXTURES_CACHE[rb_props[rb_idx]['texture']] = self._scene.gym.create_texture_from_file(self._scene.sim, str(self._assets_root / rb_props[rb_idx]['texture']))
+                        texture_path = str(
+                            (self._assets_root / rb_props[rb_idx]['texture']).resolve()
+                        )
+                        self.GLOBAL_TEXTURES_CACHE[rb_props[rb_idx]['texture']] = self._scene.gym.create_texture_from_file(
+                            self._scene.sim,
+                            texture_path,
+                        )
                     th = self.GLOBAL_TEXTURES_CACHE[rb_props[rb_idx]['texture']]
                     self._scene.gym.set_rigid_body_texture(env_ptr, ah, rb_idx, gymapi.MESH_VISUAL, th)
 
@@ -315,8 +321,7 @@ class GymAsset(ABC):
 
                 for k in 'wxyz':
                     rb_states[i]['pose']['r'][k] = getattr(transform.r, k)
-
-        self.set_rb_states(env_idx, name, rb_states)
+        return self.set_rb_states(env_idx, name, rb_states)
 
     def get_rb_rigid_transforms(self, env_idx, name):
         transforms = self.get_rb_transforms(env_idx, name)
