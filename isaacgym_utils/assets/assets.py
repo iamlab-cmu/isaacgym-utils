@@ -283,7 +283,7 @@ class GymAsset(ABC):
 
         return transforms
 
-    def get_rb_transform(self, env_idx, name, rb_name):
+    def get_rb_transform(self, env_idx, name, rb_name, raw_np=False):
         env_ptr = self._scene.env_ptrs[env_idx]
 
         if self._scene.use_gpu_pipeline:
@@ -293,6 +293,8 @@ class GymAsset(ABC):
                 env_ptr, ah, rb_idx, gymapi.DOMAIN_SIM
             )
             rb_state = self._scene.tensors['rb_states'][rb_tensor_idx]
+            if raw_np:
+                return rb_state[[0, 1, 2, 6, 3, 4, 5]].cpu().numpy()
             return gymapi.Transform(p=np_to_vec3(rb_state[:3]), r=np_to_quat(rb_state[3:7]))
         else:
             bh = self._scene.gym.get_rigid_handle(env_ptr, name, rb_name)

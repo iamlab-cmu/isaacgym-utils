@@ -3,7 +3,7 @@ from pathlib import Path
 
 from isaacgym import gymapi
 from isaacgym_utils.constants import isaacgym_utils_ASSETS_PATH
-from isaacgym_utils.math_utils import transform_to_RigidTransform, vec3_to_np, quat_to_rot, np_to_vec3
+from isaacgym_utils.math_utils import transform_to_RigidTransform, vec3_to_np, quat_to_rot, np_to_vec3, rot_from_np_quat
 
 from .assets import GymURDFAsset
 from .franka_numerical_utils import get_franka_mass_matrix
@@ -52,6 +52,8 @@ class GymFranka(GymURDFAsset):
         self._gripper_offset = gymapi.Transform(gymapi.Vec3(0, 0, 0.1034))
         self._finger_offset = gymapi.Transform(gymapi.Vec3(0, 0, 0.045))
 
+        self._gripper_ee_tool_offset_np = vec3_to_np(self._gripper_offset.p) + vec3_to_np(self._ee_tool_offset.p)
+
         self._actuation_mode = actuation_mode
         self._attractor_handles_map = {}
         self._attractor_transforms_map = {}
@@ -85,10 +87,14 @@ class GymFranka(GymURDFAsset):
     def get_base_transform(self, env_idx, name):
         return self.get_rb_transform(env_idx, name, 'panda_link0')
 
-    def get_ee_transform(self, env_idx, name, offset=True):
-        ee_transform = self.get_rb_transform(env_idx, name, 'panda_hand')
+    def get_ee_transform(self, env_idx, name, offset=True, raw_np=False):
+        ee_transform = self.get_rb_transform(env_idx, name, 'panda_hand', raw_np=raw_np)
         if offset:
-            ee_transform = ee_transform * self._gripper_offset * self._ee_tool_offset
+            if raw_np:                    
+                R = rot_from_np_quat(ee_transform[3:])
+                ee_transform[:3] = R @ self._gripper_ee_tool_offset_np + ee_transform[:3]
+            else:
+                ee_transform = ee_transform * self._gripper_offset * self._ee_tool_offset
         return ee_transform
 
     def get_ee_rigid_transform(self, env_idx, name, offset=True):
@@ -233,9 +239,9 @@ class GymFranka(GymURDFAsset):
 
         self.apply_actor_dof_efforts(env_idx, name, tau)
 
-    def get_links_transforms(self, env_idx, name):
+    def get_links_transforms(self, env_idx, name, raw_np=False):
         return [
-            self.get_rb_transform(env_idx, name, f'panda_link{i}')
+            self.get_rb_transform(env_idx, name, f'panda_link{i}', raw_np=raw_np)
             for i in range(1, 8)
         ]
 
@@ -247,19 +253,30 @@ class GymFranka(GymURDFAsset):
                 for i, transform in enumerate(transforms)]
 
     def get_jacobian(self, env_idx, name, target_joint=7):
-        transforms = self.get_links_transforms(env_idx, name)
+        raw_np = False # self._scene.use_gpu_pipeline
+        transforms = self.get_links_transforms(env_idx, name, raw_np=raw_np)
 
-        if target_joint == 7:
-            ee_pos = vec3_to_np(self.get_ee_transform(env_idx, name).p)
+        if raw_np:
+            if target_joint == 7:
+                ee_pos = self.get_ee_transform(env_idx, name, raw_np=raw_np)[:3]
+            else:
+                ee_pos = transforms[target_joint][:3]
+
+            transforms = np.array(transforms)
+            joints_pos = transforms[:, :3]
+            axes = np.array([rot_from_np_quat(q)[:, 2] for q in transforms[:, 3:]])
         else:
-            ee_pos = vec3_to_np(transforms[target_joint].p)
+            if target_joint == 7:
+                ee_pos = vec3_to_np(self.get_ee_transform(env_idx, name).p)
+            else:
+                ee_pos = vec3_to_np(transforms[target_joint].p)
 
-        joints_pos, axes = np.zeros((7, 3)), np.zeros((7, 3))
-        for i, transform in enumerate(transforms[:target_joint]):
-            joints_pos[i] = vec3_to_np(transform.p)
-            axes[i] = quat_to_rot(transform.r)[:, 2]
+            joints_pos, axes = np.zeros((7, 3)), np.zeros((7, 3))
+            for i, transform in enumerate(transforms[:target_joint]):
+                joints_pos[i] = vec3_to_np(transform.p)
+                axes[i] = quat_to_rot(transform.r)[:, 2]
+        
         J = np.r_[np.cross(axes, ee_pos - joints_pos).T, axes.T]
-
         return J
 
     def get_mass_matrix(self, env_idx, name):
