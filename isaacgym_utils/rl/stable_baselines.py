@@ -26,6 +26,9 @@ class StableBaselinesVecEnvAdapter(VecEnv):
     def seed(self, seed):
         pass
 
+    def env_is_wrapped(self):
+        pass
+
 
 class GymFrankaBlockVecEnvStableBaselines(GymFrankaBlockVecEnv, StableBaselinesVecEnvAdapter):
     '''
