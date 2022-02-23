@@ -26,8 +26,12 @@ class StableBaselinesVecEnvAdapter(VecEnv):
     def seed(self, seed):
         pass
 
-    def env_is_wrapped(self):
-        pass
+    def env_is_wrapped(self, wrapper_class, indices=None):
+        if indices is None:
+            n = self.num_envs
+        else:
+            n = len(indices)
+        return [False] * n
 
 
 class GymFrankaBlockVecEnvStableBaselines(GymFrankaBlockVecEnv, StableBaselinesVecEnvAdapter):
