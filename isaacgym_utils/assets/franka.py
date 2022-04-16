@@ -261,7 +261,7 @@ class GymFranka(GymURDFAsset):
 
         return ik_solution_found
 
-    def get_joints_from_ee_transform_ik(self, env_idx, name, ee_transform, ik_robot_joints_hint='default'):
+    def get_joints_from_ee_transform_ik(self, env_idx, name, ee_transform, ik_robot_joints_hint='default', allow_random_search_on_hint_failure=True):
 
         if isinstance(ik_robot_joints_hint, str) and ik_robot_joints_hint == 'default':
             robot_joints_for_ik = franka_default_joints_for_ik
@@ -288,11 +288,19 @@ class GymFranka(GymURDFAsset):
         )
 
         T = SE3(desired_ee_pos_wrt_base) * SE3(SO3(quat_desired.R))
+        ikine_ilimit=200
         sol = self._robot_model_for_ik.ikine_LM(
             T,
             q0=robot_joints_for_ik,
-            ilimit=200,
+            ilimit=ikine_ilimit,
         )
+
+        if not sol.success and allow_random_search_on_hint_failure:
+            sol = self._robot_model_for_ik.ikine_LM(
+                T,
+                ilimit=ikine_ilimit,
+                search=True,
+            )
 
         ik_solution_found = sol.success
         joint_angles = sol.q
