@@ -156,7 +156,7 @@ class GymFrankaVecEnv(GymVecEnv):
                     p=np_to_vec3(delta_tra),
                     r=rpy_to_quat(delta_rpy),
                 )
-                self._frankas[env_idx].set_delta_ee_transform(env_idx, self._franka_name, delta_transform)
+                self._frankas[env_idx].set_ee_transform_delta_target(env_idx, self._franka_name, delta_transform)
             elif self._action_mode == 'hfpc' or self._action_mode == 'hfpc_cartesian_gains':
                 xa_tf = self._frankas[env_idx].get_ee_transform(env_idx, self._franka_name)
                 xa = transform_to_np(xa_tf, format='wxyz')
@@ -233,11 +233,11 @@ class GymFrankaVecEnv(GymVecEnv):
                     init_random_joints = np.clip(np.random.normal(self._init_joints[env_idx], \
                         (self._frankas[env_idx].joint_limits_upper - self._frankas[env_idx].joint_limits_lower)/10), self._frankas[env_idx].joint_limits_lower, \
                         self._frankas[env_idx].joint_limits_upper)
-                    self._frankas[env_idx].set_joints(env_idx, self._franka_name, init_random_joints)            
+                    self._frankas[env_idx].set_joints(env_idx, self._franka_name, init_random_joints)
                     self._frankas[env_idx].set_joints_targets(env_idx, self._franka_name, init_random_joints)
 
             if self._action_mode == 'vic':
-                self._frankas[env_idx].set_ee_transform(
+                self._frankas[env_idx].set_ee_transform_target(
                     env_idx, self._franka_name, self._init_ee_transforms[env_idx]
                 )
 

@@ -1,8 +1,16 @@
 import numpy as np
 from pathlib import Path
 
+# needed for IK
+import roboticstoolbox as rtb
+from spatialmath import SE3, SO3
+from spatialmath.quaternion import UnitQuaternion
+
 from isaacgym import gymapi
-from isaacgym_utils.constants import isaacgym_utils_ASSETS_PATH
+from isaacgym_utils.constants import (
+    franka_default_joints_for_ik,
+    isaacgym_utils_ASSETS_PATH,
+)
 from isaacgym_utils.math_utils import transform_to_RigidTransform, vec3_to_np, quat_to_rot, np_to_vec3
 
 from .assets import GymURDFAsset
@@ -59,6 +67,8 @@ class GymFranka(GymURDFAsset):
         if actuation_mode == 'attractors':
             self._attractor_stiffness = cfg['attractor_props']['stiffness']
             self._attractor_damping = cfg['attractor_props']['damping']
+
+        self._robot_model_for_ik = rtb.models.URDF.Panda()
 
     def set_gripper_width_target(self, env_idx, name, width):
         joints_targets = self.get_joints_targets(env_idx, name)
@@ -166,7 +176,7 @@ class GymFranka(GymURDFAsset):
                 self._attractor_handles_map[key] = attractor_handle
 
             gripper_transform = self.get_ee_transform(env_idx, name)
-            self.set_ee_transform(env_idx, name, gripper_transform)
+            self.set_ee_transform_target(env_idx, name, gripper_transform)
         elif self._actuation_mode == 'joints':
             self.set_dof_props(env_idx, name, {
                 'driveMode': [gymapi.DOF_MODE_POS] * 9
@@ -205,7 +215,84 @@ class GymFranka(GymURDFAsset):
 
         self._scene.gym.set_attractor_properties(env_ptr, ath, attractor_props)
 
-    def set_ee_transform(self, env_idx, name, transform):
+    def set_ee_transform(self, env_idx, name, ee_transform, **set_ee_kwargs):
+
+        # TODO: deal with ee offsets
+
+        ik_solution_found, ik_joint_angles_wo_gripper = self.get_joints_from_ee_transform_ik(
+            env_idx,
+            name,
+            ee_transform,
+            **set_ee_kwargs,
+        )
+
+        if ik_solution_found:
+            # Set targets for joints/ee etc
+            gripper_angles = self.get_joints(env_idx, name)[7:].astype("float")
+            new_joint_angles = np.concatenate(
+                (
+                    ik_joint_angles_wo_gripper,
+                    gripper_angles,
+                )
+            )
+
+            # This should "snap" the robot to the block
+            self.set_joints(env_idx, name, new_joint_angles)
+            self.set_joints_targets(env_idx, name, new_joint_angles)
+            self.set_ee_transform_target(env_idx, name, ee_transform)
+
+        return ik_solution_found
+
+    def get_joints_from_ee_transform_ik(self, env_idx, name, ee_transform, ik_robot_joints_hint='default', allow_random_search_on_hint_failure=True):
+
+        if isinstance(ik_robot_joints_hint, str) and ik_robot_joints_hint == 'default':
+            robot_joints_for_ik = franka_default_joints_for_ik
+        elif isinstance(ik_robot_joints_hint, str) and ik_robot_joints_hint == 'current':
+            robot_joints_for_ik = self.get_joints(env_idx, name)[:7].astype(
+                "float"
+            )
+        else:
+            robot_joints_for_ik = ik_robot_joints_hint
+
+        # where is the franka base
+        base_tform = self.get_base_transform(env_idx, name)
+        desired_ee_pos = ee_transform.p
+
+        desired_ee_pos_wrt_base = vec3_to_np(desired_ee_pos - base_tform.p)
+
+        quat_desired = UnitQuaternion(
+            ee_transform.r.w,
+            [
+                ee_transform.r.x,
+                ee_transform.r.y,
+                ee_transform.r.z,
+            ],
+        )
+
+        T = SE3(desired_ee_pos_wrt_base) * SE3(SO3(quat_desired.R))
+        ikine_ilimit=200
+        sol = self._robot_model_for_ik.ikine_LM(
+            T,
+            q0=robot_joints_for_ik,
+            ilimit=ikine_ilimit,
+        )
+
+        if not sol.success and allow_random_search_on_hint_failure:
+            sol = self._robot_model_for_ik.ikine_LM(
+                T,
+                ilimit=ikine_ilimit,
+                search=True,
+            )
+
+        ik_solution_found = sol.success
+        joint_angles = sol.q
+
+        return ik_solution_found, joint_angles
+
+    def set_ee_transform_delta(self, env_idx, name, delta_transform):
+        raise NotImplementedError
+
+    def set_ee_transform_target(self, env_idx, name, transform):
         if self._actuation_mode != 'attractors':
             raise ValueError('Can\'t set ee transform when not using attractors!')
         key = self._key(env_idx, name)
@@ -216,7 +303,7 @@ class GymFranka(GymURDFAsset):
         env_ptr = self._scene.env_ptrs[env_idx]
         self._scene.gym.set_attractor_target(env_ptr, attractor_handle, transform)
 
-    def set_delta_ee_transform(self, env_idx, name, transform):
+    def set_ee_transform_delta_target(self, env_idx, name, transform):
         ''' This performs delta translation in the global frame and
             delta rotation in the end-effector frame.
         '''
@@ -225,7 +312,7 @@ class GymFranka(GymURDFAsset):
         desired_transform.p = desired_transform.p + transform.p
         desired_transform.r = transform.r * desired_transform.r
 
-        self.set_ee_transform(env_idx, name, desired_transform)
+        self.set_ee_transform_target(env_idx, name, desired_transform)
 
     def apply_torque(self, env_idx, name, tau):
         if len(tau) == 7:

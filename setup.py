@@ -17,7 +17,9 @@ requirements = [
     'visualization',
     'numba',
     'triangle',
-    'numpy-quaternion'
+    'numpy-quaternion',
+    'roboticstoolbox-python',  # needed for ik
+    'spatialmath-python',  # needed for ik
 ]
 
 setup(name='isaacgym_utils',
